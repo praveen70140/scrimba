@@ -57,5 +57,13 @@
         "title": "Scrim: Logout"
       }
     ]
+  },
+  "dependencies": {
+    "@scrimba-clone/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
   }
 }
