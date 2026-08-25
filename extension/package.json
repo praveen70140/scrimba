@@ -75,7 +75,8 @@
     }
   },
   "dependencies": {
-    "@scrimba-clone/shared": "workspace:*"
+    "@scrimba-clone/shared": "workspace:*",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.80.0",
