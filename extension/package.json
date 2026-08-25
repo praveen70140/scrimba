@@ -56,7 +56,23 @@
         "command": "scrim.logout",
         "title": "Scrim: Logout"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "scrim-sidebar",
+          "title": "Scrim",
+          "icon": "media/scrim-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "scrim-sidebar": [
+        { "id": "scrim.catalog", "name": "Course Catalog", "type": "tree" },
+        { "id": "scrim.myCourses", "name": "My Courses", "type": "tree" },
+        { "id": "scrim.myForks", "name": "My Forks", "type": "tree" }
+      ]
+    }
   },
   "dependencies": {
     "@scrimba-clone/shared": "workspace:*"
