@@ -5,5 +5,11 @@
     "extension",
     "backend",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "build": "bun build:backend && bun build:extension",
+    "build:backend": "cd backend && bun run tsc",
+    "build:extension": "cd extension && bun run tsc",
+    "dev:backend": "cd backend && bun run --watch src/index.ts"
+  }
 }
