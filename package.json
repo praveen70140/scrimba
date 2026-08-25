@@ -2,8 +2,8 @@
   "name": "scrimba-clone",
   "private": true,
   "workspaces": [
-    "packages/*",
     "extension",
-    "backend"
+    "backend",
+    "packages/*"
   ]
 }

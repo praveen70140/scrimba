@@ -1,17 +1,6 @@
 {
-  "name": "scrim-backend",
+  "name": "backend",
   "version": "1.0.0",
-  "module": "index.ts",
-  "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^7"
-  },
-  "dependencies": {
-    "@scrimba/shared": "workspace:*",
-    "hono": "^4.13.4"
-  }
+  "type": "module"
 }

@@ -1,32 +1,61 @@
 {
-  "name": "scrim-extension",
-  "displayName": "Scrim",
-  "description": "Scrimba-like recording and playback for VS Code",
+  "name": "extension",
   "version": "1.0.0",
-  "publisher": "scrim",
+  "publisher": "scrimba-clone",
   "engines": {
     "vscode": "^1.80.0"
   },
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "scrim.helloWorld",
-        "title": "Hello World"
+        "command": "scrim.newCourse",
+        "title": "Scrim: New Course"
+      },
+      {
+        "command": "scrim.newLesson",
+        "title": "Scrim: New Lesson"
+      },
+      {
+        "command": "scrim.startRecording",
+        "title": "Scrim: Start Recording"
+      },
+      {
+        "command": "scrim.stopRecording",
+        "title": "Scrim: Stop Recording"
+      },
+      {
+        "command": "scrim.markChapter",
+        "title": "Scrim: Mark Chapter Here"
+      },
+      {
+        "command": "scrim.addChallenge",
+        "title": "Scrim: Add Challenge Here"
+      },
+      {
+        "command": "scrim.previewLesson",
+        "title": "Scrim: Preview This Lesson"
+      },
+      {
+        "command": "scrim.publishLesson",
+        "title": "Scrim: Publish Lesson"
+      },
+      {
+        "command": "scrim.fork",
+        "title": "Scrim: Fork Here"
+      },
+      {
+        "command": "scrim.resume",
+        "title": "Scrim: Resume"
+      },
+      {
+        "command": "scrim.login",
+        "title": "Scrim: Login"
+      },
+      {
+        "command": "scrim.logout",
+        "title": "Scrim: Logout"
       }
     ]
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.80.0",
-    "@types/node": "18.x",
-    "typescript": "^5.0.0"
-  },
-  "dependencies": {
-    "@scrimba/shared": "workspace:*"
   }
 }
