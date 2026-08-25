@@ -1,0 +1,32 @@
+{
+  "name": "scrim-extension",
+  "displayName": "Scrim",
+  "description": "Scrimba-like recording and playback for VS Code",
+  "version": "1.0.0",
+  "publisher": "scrim",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "scrim.helloWorld",
+        "title": "Hello World"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "18.x",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@scrimba/shared": "workspace:*"
+  }
+}
