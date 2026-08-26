@@ -33,10 +33,11 @@ export class Recorder {
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   }
 
+  private initialFiles: Record<string, string> = {};
+
   public async start(context: vscode.ExtensionContext, browserRegion?: ScreenRegion): Promise<void> {
-    // Snapshot starter files
-    const starterDir = path.join(this.lessonDir, 'starter');
-    await fs.mkdir(starterDir, { recursive: true });
+    // Snapshot starter files in memory at the exact moment recording starts
+    this.initialFiles = {};
     const wsFolder = vscode.workspace.workspaceFolders?.[0];
     if (wsFolder) {
       const pattern = new vscode.RelativePattern(wsFolder, '**/*');
@@ -44,10 +45,12 @@ export class Recorder {
       for (const f of allFiles) {
         const rel = path.relative(wsFolder.uri.fsPath, f.fsPath);
         if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) { continue; }
-        const dest = path.join(starterDir, rel);
-        if (f.fsPath === dest) continue;
-        await fs.mkdir(path.dirname(dest), { recursive: true });
-        await fs.copyFile(f.fsPath, dest);
+        try {
+          const content = await fs.readFile(f.fsPath, 'utf-8');
+          this.initialFiles[rel] = content;
+        } catch (e) {
+          console.warn(`[Recorder] Failed to read ${f.fsPath} for snapshot:`, e);
+        }
       }
     }
 
@@ -133,25 +136,7 @@ export class Recorder {
 
     // Write the .scrim file
     const duration = this.session.recordingElapsedMs;
-    const starterFiles: Record<string, string> = {};
-    const starterDir = path.join(this.lessonDir, 'starter');
-    try {
-      const entries = await fs.readdir(starterDir, { recursive: true, withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile()) {
-          // entry.parentPath is available in Node 18.19+, but path.join(entry.path) works too
-          // Node 20 types support entry.parentPath || entry.path.
-          const parentDir = (entry as any).parentPath || entry.path;
-          const fullPath = path.join(parentDir, entry.name);
-          const relPath = path.relative(starterDir, fullPath);
-          try {
-            starterFiles[relPath] = await fs.readFile(fullPath, 'utf-8');
-          } catch (e) {
-            console.warn(`[Recorder] Failed to read starter file ${relPath}:`, e);
-          }
-        }
-      }
-    } catch { /* starter dir might be empty */ }
+    const starterFiles = this.initialFiles;
 
     const lessonId = this.session.lessonMeta?.id || path.basename(this.lessonDir) || 'unknown';
     const lessonTitle = this.session.lessonMeta?.title || lessonId;
