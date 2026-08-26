@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import { WorkspaceManager } from '../workspace/WorkspaceManager';
 import { ScrimSession } from '../core/ScrimSession';
-import { ScrimFS } from '../core/ScrimFS';
+import { StateHydrator } from './StateHydrator';
 import * as path from 'path';
 
 /**
  * Manages the lifecycle of a student's fork during playback.
  */
 export class ForkManager {
-  constructor(private session: ScrimSession, private scrimFs: ScrimFS) {}
+  constructor(private session: ScrimSession) {}
 
   /**
-   * Captures the current virtual files and writes them to a physical fork directory.
+   * Calculates the file state using StateHydrator and writes them to a physical fork directory.
    */
   public async createFork(): Promise<vscode.Uri> {
     const lessonId = this.session.lessonMeta.id;
@@ -21,8 +21,10 @@ export class ForkManager {
     const labelTime = ScrimSession.formatTime(t);
     const forkId = `fork_${labelTime.replace(':', 'm')}s_${Math.random().toString(36).slice(2, 6)}`;
     
-    const virtualFiles = this.scrimFs.getAllFiles();
+    // Calculate the codebase state exactly at the requested time
+    const virtualFiles = StateHydrator.hydrate(this.session.initialFiles, this.session.events, t);
 
+    // Write to a real physical directory and open it
     const forkUri = await WorkspaceManager.createFork(lessonId, forkId, virtualFiles, t);
     
     this.session.activeFork = {
@@ -31,6 +33,9 @@ export class ForkManager {
       timestampMs: t,
       forkPath: forkUri.fsPath
     };
+
+    // Open the folder automatically
+    await this.openActiveFork();
 
     return forkUri;
   }

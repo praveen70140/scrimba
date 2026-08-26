@@ -30,6 +30,7 @@ export class ScrimSession {
 
   // ── Recorded events (loaded from .scrim file) ────────────────────────────
   public events: ScrimEvent[] = [];
+  public initialFiles: Record<string, string> = {};
 
   // ── Workspace paths ──────────────────────────────────────────────────────
   public teacherDir: string = '';        // readonly teacher playback folder

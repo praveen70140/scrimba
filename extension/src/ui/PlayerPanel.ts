@@ -1,12 +1,9 @@
 import * as vscode from 'vscode';
 import { ScrimSession } from '../core/ScrimSession';
 import { Player } from '../player/Player';
+import * as path from 'path';
+import * as fs from 'fs';
 
-/**
- * PlayerPanel is a Webview that acts as the main control center for playback.
- * It shows the video timeline, play/pause controls, chapter markers,
- * and the floating webcam overlay.
- */
 export class PlayerPanel {
   private panel: vscode.WebviewPanel | undefined;
 
@@ -16,7 +13,7 @@ export class PlayerPanel {
     private player: Player
   ) {}
 
-  public show(): void {
+  public show(lessonDir: string): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.Two);
       return;
@@ -28,18 +25,28 @@ export class PlayerPanel {
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(this.context.extensionPath)]
+        localResourceRoots: [
+          vscode.Uri.file(this.context.extensionPath),
+          vscode.Uri.file(lessonDir)
+        ]
       }
     );
 
-    this.panel.webview.html = this.getHtml();
+    this.panel.webview.html = this.getHtml(lessonDir);
 
     this.panel.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
         case 'play': this.player.play(); break;
         case 'pause': this.player.pause(); break;
         case 'seek': this.player.seekTo(message.timeMs); break;
-        case 'fork': this.player.fork(); break;
+        case 'fork': 
+          // Update the player's time to exactly where the video was paused
+          this.session.currentTimeMs = message.timeMs;
+          this.player.fork(); 
+          break;
+        case 'timeupdate':
+          this.session.currentTimeMs = message.timeMs;
+          break;
       }
     });
 
@@ -48,88 +55,100 @@ export class PlayerPanel {
     });
   }
 
-  public updateTime(timeMs: number): void {
-    if (this.panel) {
-      this.panel.webview.postMessage({ command: 'updateTime', timeMs });
-    }
+  public dispose(): void {
+    this.panel?.dispose();
   }
 
-  private getHtml(): string {
-    // In a full implementation, we would use a local Express server to stream
-    // the webcam.mp4 and audio.ogg, or load them directly via Webview URIs if small enough.
-    // For now, we mock the UI with HTML/CSS.
+  public playVideo(): void {
+    if (this.panel) this.panel.webview.postMessage({ command: 'play' });
+  }
 
-    const escapeHtml = (unsafe: string) => unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+  public pauseVideo(): void {
+    if (this.panel) this.panel.webview.postMessage({ command: 'pause' });
+  }
 
-    const chapters = this.session.events
-      .filter(e => e.type === 'chapter')
-      .map(e => `<div class="marker chapter" style="left: ${(e.t / (this.session.lessonMeta.durationMs || 1)) * 100}%" title="${escapeHtml((e as any).title)}"></div>`)
-      .join('');
+  public seekVideo(timeMs: number): void {
+    if (this.panel) this.panel.webview.postMessage({ command: 'seek', timeMs });
+  }
+
+  private getHtml(lessonDir: string): string {
+    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'browser-preview.mp4')));
 
     return `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
-          body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; }
-          .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+          body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; }
+          .video-container { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
+          video { max-width: 100%; max-height: 100%; object-fit: contain; }
+          .controls { display: flex; gap: 10px; align-items: center; padding: 10px; background: var(--vscode-editorWidget-background); }
           button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 5px 10px; cursor: pointer; border-radius: 2px; }
           button:hover { background: var(--vscode-button-hoverBackground); }
-          .timeline { position: relative; width: 100%; height: 10px; background: var(--vscode-editorWidget-background); border-radius: 5px; cursor: pointer; }
+          .timeline-container { padding: 10px; background: var(--vscode-editorWidget-background); }
+          .timeline { position: relative; width: 100%; height: 10px; background: var(--vscode-editor-background); border-radius: 5px; cursor: pointer; }
           .progress { position: absolute; top: 0; left: 0; height: 100%; background: var(--vscode-progressBar-background); pointer-events: none; }
-          .marker { position: absolute; top: -2px; width: 4px; height: 14px; background: orange; }
-          .webcam { width: 150px; height: 150px; background: black; border-radius: 50%; border: 3px solid var(--vscode-focusBorder); margin-top: 20px; display: flex; align-items: center; justify-content: center; }
         </style>
       </head>
       <body>
-        <div class="controls">
-          <button onclick="post('play')">Play</button>
-          <button onclick="post('pause')">Pause</button>
-          <button onclick="post('fork')">Fork</button>
-          <span id="timeDisplay">0:00</span>
+        <div class="video-container">
+          <video id="vid" src="${videoUri}"></video>
         </div>
         
-        <div class="timeline" id="timeline" onclick="seek(event)">
-          <div class="progress" id="progress" style="width: 0%;"></div>
-          ${chapters}
+        <div class="timeline-container">
+          <div class="timeline" id="timeline" onclick="seek(event)">
+            <div class="progress" id="progress" style="width: 0%;"></div>
+          </div>
         </div>
 
-        <div class="webcam">
-          <span>Webcam View</span>
+        <div class="controls">
+          <button onclick="playVid()">Play</button>
+          <button onclick="pauseVid()">Pause</button>
+          <button onclick="fork()">Fork Here</button>
+          <span id="timeDisplay">0:00</span>
         </div>
 
         <script>
           const vscode = acquireVsCodeApi();
-          const duration = ${this.session.lessonMeta.durationMs || 1};
+          const vid = document.getElementById('vid');
+          const duration = ${this.session.lessonMeta.durationMs || 100000};
           
-          function post(cmd) {
-            vscode.postMessage({ command: cmd });
+          vid.addEventListener('timeupdate', () => {
+            const timeMs = vid.currentTime * 1000;
+            const p = (timeMs / duration) * 100;
+            document.getElementById('progress').style.width = p + '%';
+            
+            const totalSec = Math.floor(timeMs / 1000);
+            const m = Math.floor(totalSec / 60);
+            const s = (totalSec % 60).toString().padStart(2, '0');
+            document.getElementById('timeDisplay').innerText = m + ':' + s;
+
+            vscode.postMessage({ command: 'timeupdate', timeMs });
+          });
+
+          vid.addEventListener('play', () => vscode.postMessage({ command: 'play' }));
+          vid.addEventListener('pause', () => vscode.postMessage({ command: 'pause' }));
+
+          function playVid() { vid.play(); }
+          function pauseVid() { vid.pause(); }
+          function fork() {
+            vid.pause();
+            vscode.postMessage({ command: 'fork', timeMs: vid.currentTime * 1000 });
           }
 
           function seek(e) {
             const rect = document.getElementById('timeline').getBoundingClientRect();
             const percent = (e.clientX - rect.left) / rect.width;
-            vscode.postMessage({ command: 'seek', timeMs: Math.floor(percent * duration) });
+            vid.currentTime = (percent * duration) / 1000;
           }
 
           window.addEventListener('message', event => {
             const msg = event.data;
-            if (msg.command === 'updateTime') {
-              const p = (msg.timeMs / duration) * 100;
-              document.getElementById('progress').style.width = p + '%';
-              
-              const totalSec = Math.floor(msg.timeMs / 1000);
-              const m = Math.floor(totalSec / 60);
-              const s = (totalSec % 60).toString().padStart(2, '0');
-              document.getElementById('timeDisplay').innerText = m + ':' + s;
-            }
+            if (msg.command === 'play') playVid();
+            if (msg.command === 'pause') pauseVid();
+            if (msg.command === 'seek') vid.currentTime = msg.timeMs / 1000;
           });
         </script>
       </body>

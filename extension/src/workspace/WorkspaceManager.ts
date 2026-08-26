@@ -37,6 +37,11 @@ export class WorkspaceManager {
       if (!fileUri.fsPath.startsWith(forkDir.fsPath)) {
         throw new Error(`Invalid path: ${filename} attempts to traverse outside fork directory`);
       }
+      
+      // Ensure parent directory exists
+      const parentUri = vscode.Uri.joinPath(fileUri, '..');
+      await vscode.workspace.fs.createDirectory(parentUri);
+
       const content = Buffer.from(contentStr, 'utf-8');
       await vscode.workspace.fs.writeFile(fileUri, content);
     }

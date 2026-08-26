@@ -4,7 +4,6 @@ import { CatalogViewProvider } from './ui/CatalogView';
 import { MyCoursesViewProvider } from './ui/MyCoursesView';
 import { MyForksViewProvider } from './ui/MyForksView';
 import { WorkspaceManager } from './workspace/WorkspaceManager';
-import { ScrimFS } from './core/ScrimFS';
 import { ScrimSession } from './core/ScrimSession';
 import { StateManager } from './core/StateManager';
 import { Paths } from './utils/Paths';
@@ -23,11 +22,10 @@ export async function activate(context: vscode.ExtensionContext) {
   const auth = new Auth(context.secrets, apiClient);
   await auth.init();
 
-  const scrimFs = new ScrimFS();
   const session = new ScrimSession();
   const stateManager = new StateManager(session);
   const statusBar = new StatusBar(session, null as any, stateManager); // will fix circular dep shortly
-  const player = new Player(session, stateManager, scrimFs);
+  const player = new Player(session, stateManager);
   let recorder: Recorder | undefined;
   
   // Hack to satisfy StatusBar needing Player for time sync 
@@ -36,10 +34,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const playerPanel = new PlayerPanel(context, session, player);
   const browserPanel = new BrowserPreviewPanel(context, session);
 
-  // Register Virtual File System
-  context.subscriptions.push(
-    vscode.workspace.registerFileSystemProvider('scrim', scrimFs, { isCaseSensitive: true, isReadonly: true })
-  );
+  player.setPlayerPanel(playerPanel);
 
   const catalogProvider = new CatalogViewProvider();
   const myCoursesProvider = new MyCoursesViewProvider();
@@ -187,10 +182,6 @@ export async function activate(context: vscode.ExtensionContext) {
       await player.fork();
     }),
 
-    vscode.commands.registerCommand('scrim.resume', async () => {
-      await player.resumeFromFork();
-    }),
-
     // ── Preview & Publish ────────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.previewLesson', async () => {
       const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -206,8 +197,7 @@ export async function activate(context: vscode.ExtensionContext) {
       
       try {
         await player.loadLesson(scrimFile);
-        playerPanel.show();
-        browserPanel.showRecordedVideo();
+        playerPanel.show(lessonDir);
       } catch (e: any) {
         vscode.window.showErrorMessage('Failed to load lesson: ' + e.message);
       }
