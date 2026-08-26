@@ -65,6 +65,22 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
+    vscode.commands.registerCommand('scrim.register', async () => {
+      const email = await vscode.window.showInputBox({ prompt: 'Email' });
+      if (!email) return;
+      const username = await vscode.window.showInputBox({ prompt: 'Username' });
+      if (!username) return;
+      const password = await vscode.window.showInputBox({ prompt: 'Password', password: true });
+      if (!password) return;
+      try {
+        const res = await apiClient.register(email, username, password);
+        await auth.setToken(res.token);
+        vscode.window.showInformationMessage(`Registered and logged in as ${res.user.username}`);
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Registration failed: ' + e.message);
+      }
+    }),
+
     vscode.commands.registerCommand('scrim.logout', async () => {
       await auth.clearToken();
       vscode.window.showInformationMessage('Logged out.');
