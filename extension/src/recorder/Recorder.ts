@@ -54,12 +54,22 @@ export class Recorder {
     const audioDevice = (await FfmpegWrapper.detectAudioDevices())[0];
     const videoDevice = (await FfmpegWrapper.detectVideoDevices())[0];
 
-    await this.audioCapture.start(this.lessonDir, audioDevice.path).catch(e =>
-      console.warn('[Recorder] Audio capture failed (no mic?):', e.message)
-    );
-    await this.webcamCapture.start(this.lessonDir, videoDevice.path).catch(e =>
-      console.warn('[Recorder] Webcam capture failed (no camera?):', e.message)
-    );
+    if (audioDevice) {
+      await this.audioCapture.start(this.lessonDir, audioDevice.path).catch(e =>
+        console.warn('[Recorder] Audio capture failed (no mic?):', e?.message ?? e)
+      );
+    } else {
+      console.warn('[Recorder] No audio input device found; skipping audio capture.');
+    }
+
+    if (videoDevice) {
+      await this.webcamCapture.start(this.lessonDir, videoDevice.path).catch(e =>
+        console.warn('[Recorder] Webcam capture failed (no camera?):', e?.message ?? e)
+      );
+    } else {
+      console.warn('[Recorder] No video input device found; skipping webcam capture.');
+    }
+
     if (browserRegion) {
       await this.browserCapture.start(this.lessonDir, browserRegion).catch(e =>
         console.warn('[Recorder] Browser capture failed:', e.message)
@@ -101,7 +111,7 @@ export class Recorder {
     this.statusBar.text = '🟡 Processing...';
 
     // Stop all captures
-    const [, , events] = await Promise.all([
+    await Promise.all([
       this.audioCapture.stop().catch(e => console.warn('[Recorder] Audio stop error:', e.message)),
       this.webcamCapture.stop().catch(e => console.warn('[Recorder] Webcam stop error:', e.message)),
       this.browserCapture.stop().catch(e => console.warn('[Recorder] Browser stop error:', e.message)),

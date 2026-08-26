@@ -14,6 +14,9 @@ export class Downloader {
    * into the local cache directory `~/.scrimba/cache/<lessonId>/`.
    */
   public async downloadLessonAssets(lessonId: string): Promise<string> {
+    if (!/^[A-Za-z0-9_-]+$/.test(lessonId)) {
+      throw new Error(`Invalid lessonId: ${lessonId}`);
+    }
     const cacheDir = path.join(Paths.getBaseDir(), 'cache', lessonId);
     await fs.mkdir(cacheDir, { recursive: true });
 

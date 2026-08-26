@@ -122,28 +122,43 @@ export class Player implements vscode.Disposable {
   private startTimer(): void {
     if (this.playbackTimer) return;
     this.lastTickMs = Date.now();
+    let ticking = false;
     this.playbackTimer = setInterval(async () => {
-      const now = Date.now();
-      const delta = now - this.lastTickMs;
-      this.lastTickMs = now;
+      if (ticking) return;
+      ticking = true;
+      try {
+        const now = Date.now();
+        const delta = now - this.lastTickMs;
+        this.lastTickMs = now;
 
-      this.session.currentTimeMs += delta;
+        this.session.currentTimeMs += delta;
 
-      // Sync events up to currentTimeMs
-      await this.eventReplayer.syncToTimestamp(this.session.currentTimeMs, false);
+        // Sync events up to currentTimeMs
+        const prevIndex = this.eventReplayer.getCurrentIndex();
+        await this.eventReplayer.syncToTimestamp(this.session.currentTimeMs, false);
+        const newIndex = this.eventReplayer.getCurrentIndex();
 
-      // Check for challenge event at current index (EventReplayer doesn't dispatch challenge, so we check)
-      const currentIndex = this.eventReplayer.getCurrentIndex();
-      if (currentIndex > 0 && currentIndex <= this.session.events.length) {
-        const lastEvent = this.session.events[currentIndex - 1];
-        if (lastEvent.type === 'challenge' && Math.abs(lastEvent.t - this.session.currentTimeMs) < 100) {
-          this.pause(); // Wait for user to fork or skip
-          if (this.stateManager.canTransition('CHALLENGE')) {
-            this.stateManager.transition('CHALLENGE');
+        // Check for challenge event we just passed
+        for (let i = prevIndex; i < newIndex; i++) {
+          const event = this.session.events[i];
+          if (event.type === 'challenge') {
+            this.session.currentTimeMs = event.t; // Snap precisely
+            this.pause(); // Wait for user to fork or skip
+            if (this.stateManager.canTransition('CHALLENGE')) {
+              this.stateManager.transition('CHALLENGE');
+            }
+            break;
           }
         }
-      }
 
+        const durationMs = this.session.lessonMeta?.durationMs;
+        if (durationMs && this.session.currentTimeMs >= durationMs) {
+          this.session.currentTimeMs = durationMs;
+          this.pause();
+        }
+      } finally {
+        ticking = false;
+      }
     }, 30); // ~30fps update rate
   }
 

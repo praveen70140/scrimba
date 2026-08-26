@@ -8,6 +8,7 @@ export class TerminalReplayer implements vscode.Disposable {
   private writeEmitter = new vscode.EventEmitter<string>();
   private pty: vscode.Pseudoterminal;
   private terminal: vscode.Terminal | null = null;
+  private closeSub: vscode.Disposable | null = null;
   private outputBuffer: string[] = [];
   private isOpen = false;
 
@@ -34,6 +35,13 @@ export class TerminalReplayer implements vscode.Disposable {
   public show(): void {
     if (!this.terminal) {
       this.terminal = vscode.window.createTerminal({ name: 'Scrim Playback', pty: this.pty });
+      this.closeSub?.dispose();
+      this.closeSub = vscode.window.onDidCloseTerminal(t => {
+        if (t === this.terminal) {
+          this.terminal = null;
+          this.isOpen = false;
+        }
+      });
     }
     this.terminal.show(true); // true = preserve focus (don't steal focus from editor)
   }
@@ -60,6 +68,7 @@ export class TerminalReplayer implements vscode.Disposable {
 
   public dispose(): void {
     this.terminal?.dispose();
+    this.closeSub?.dispose();
     this.writeEmitter.dispose();
   }
 }
