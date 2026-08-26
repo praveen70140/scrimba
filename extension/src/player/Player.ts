@@ -52,10 +52,7 @@ export class Player implements vscode.Disposable {
     this.eventReplayer.loadEvents(data.events);
 
     // Load starter files into Virtual FS
-    this.scrimFs.clear();
-    for (const [filepath, content] of Object.entries(data.workspace.files)) {
-      this.scrimFs.applyEdit(filepath, content);
-    }
+    this.scrimFs.mount(data.workspace.files);
 
     this.terminalReplayer.clear();
     this.terminalReplayer.show();
