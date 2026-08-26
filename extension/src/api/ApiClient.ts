@@ -43,12 +43,16 @@ export class ApiClient {
         method,
         headers: requestHeaders,
         agent: false
-      }, (res) => {
-        let data = '';
-        res.setEncoding('utf8');
-        res.on('data', chunk => { data += chunk; });
+      });
+
+      req.on('response', (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
         res.on('end', () => {
-          console.log(`[ApiClient] ${method} ${path} -> ${res.statusCode} (data: ${data})`);
+          const data = Buffer.concat(chunks).toString('utf8');
+          console.log(`[ApiClient] ${method} ${path} -> ${res.statusCode} (data length: ${data.length})`);
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             try { resolve(data ? JSON.parse(data) : null); }
             catch (e) { reject(new Error('Invalid JSON response')); }
@@ -56,7 +60,6 @@ export class ApiClient {
             reject(new Error(`API Error: ${res.statusCode} ${res.statusMessage}`));
           }
         });
-        // Handle response stream errors and premature close
         res.on('error', reject);
         res.on('close', () => {
           if (!res.complete) {
