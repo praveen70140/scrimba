@@ -38,21 +38,31 @@ export class Recorder {
   public async start(context: vscode.ExtensionContext): Promise<void> {
     // Snapshot starter files in memory at the exact moment recording starts
     this.initialFiles = {};
-    const wsFolder = vscode.workspace.workspaceFolders?.[0];
-    if (wsFolder) {
-      const pattern = new vscode.RelativePattern(wsFolder, '**/*');
-      const allFiles = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-      for (const f of allFiles) {
-        const rel = path.relative(wsFolder.uri.fsPath, f.fsPath);
-        if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) { continue; }
-        try {
-          const content = await fs.readFile(f.fsPath, 'utf-8');
-          this.initialFiles[rel] = content;
-        } catch (e) {
-          console.warn(`[Recorder] Failed to read ${f.fsPath} for snapshot:`, e);
+    const starterDir = path.join(this.lessonDir, 'starter');
+    const readDirRecursive = async (dir: string, baseDir: string) => {
+      try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            await readDirRecursive(fullPath, baseDir);
+          } else {
+            const relPath = path.relative(baseDir, fullPath);
+            try {
+              const content = await fs.readFile(fullPath, 'utf-8');
+              this.initialFiles[relPath] = content;
+            } catch (e) {
+              console.warn(`[Recorder] Failed to read ${fullPath}:`, e);
+            }
+          }
         }
+      } catch (e) {
+        console.warn(`[Recorder] Failed to read dir ${dir}:`, e);
       }
-    }
+    };
+    
+    await readDirRecursive(starterDir, starterDir);
 
     // Start all media captures
     const audioDevice = (await FfmpegWrapper.detectAudioDevices())[0];

@@ -52,8 +52,11 @@ export class StateHydrator {
         }
         case 'edit': {
           const path = this.cleanPath(event.path);
-          const fileContent = files[path];
-          if (fileContent === undefined) continue;
+          let fileContent = files[path];
+          if (fileContent === undefined) {
+            fileContent = '';
+            files[path] = '';
+          }
 
           const lines = fileContent.split('\n');
           const [startLine, startCol] = event.range[0];
