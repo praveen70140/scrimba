@@ -152,7 +152,7 @@ export class Recorder {
       media: {
         ...((this as any).audioStarted ? { audio: { file: 'audio.ogg', duration_ms: duration } } : {}),
         ...((this as any).webcamStarted ? { webcam: { file: 'webcam.mp4', duration_ms: duration } } : {}),
-        ...((this as any).screenStarted ? { screen: { file: 'screen.mp4', duration_ms: duration } } : {}),
+        ...((this as any).screenStarted ? { screen: { file: 'screen.webm', duration_ms: duration } } : {}),
       },
       events: allEvents,
     });
