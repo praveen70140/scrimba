@@ -1,54 +1,59 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as http from 'http';
 
 export class ScreenCapture {
-  private panel: vscode.WebviewPanel | undefined;
+  private server: http.Server | undefined;
   private writeStream: fs.WriteStream | undefined;
   private isRecordingState: boolean = false;
 
   public async start(outputDir: string): Promise<void> {
-    const outputPath = path.join(outputDir, 'screen.webm'); // WebRTC uses webm
+    const outputPath = path.join(outputDir, 'screen.webm');
     this.writeStream = fs.createWriteStream(outputPath);
 
-    this.panel = vscode.window.createWebviewPanel(
-      'webrtcRecorder',
-      'Select Screen to Record',
-      vscode.ViewColumn.Beside, // Show beside so user can click the permission prompt
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true
+    this.server = http.createServer((req, res) => {
+      // CORS just in case
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      if (req.method === 'GET' && req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(this.getHtml());
+      } else if (req.method === 'POST' && req.url === '/chunk') {
+        req.on('data', (chunk) => {
+          if (this.writeStream) {
+            this.writeStream.write(chunk);
+          }
+        });
+        req.on('end', () => {
+          res.writeHead(200);
+          res.end('ok');
+        });
       }
-    );
+    });
 
-    this.panel.webview.html = this.getHtml();
-
-    this.panel.webview.onDidReceiveMessage((message) => {
-      if (message.command === 'chunk') {
-        const buffer = Buffer.from(message.data, 'base64');
-        this.writeStream?.write(buffer);
-      } else if (message.command === 'started') {
+    return new Promise((resolve) => {
+      this.server!.listen(48123, '127.0.0.1', () => {
+        // Open the local server in the user's default browser (Chrome/Firefox)
+        vscode.env.openExternal(vscode.Uri.parse('http://localhost:48123/'));
         this.isRecordingState = true;
-        vscode.window.showInformationMessage('Screen recording started. You can minimize this tab during recording.');
-      } else if (message.command === 'error') {
-        vscode.window.showErrorMessage('Screen recording failed: ' + message.text);
-      }
+        resolve();
+      });
     });
   }
 
   public async stop(): Promise<void> {
-    if (this.panel) {
-      this.panel.webview.postMessage({ command: 'stop' });
-      // Give it a second to flush final chunks
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      this.panel.dispose();
-      this.panel = undefined;
-    }
+    this.isRecordingState = false;
+    
     if (this.writeStream) {
       this.writeStream.end();
       this.writeStream = undefined;
     }
-    this.isRecordingState = false;
+    
+    if (this.server) {
+      this.server.close();
+      this.server = undefined;
+    }
   }
 
   public get isRecording(): boolean {
@@ -61,18 +66,26 @@ export class ScreenCapture {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>WebRTC Recorder</title>
+        <title>Scrimba Clone - Screen Recorder</title>
+        <style>
+          body { background: #1e1e1e; color: #d4d4d4; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; margin: 0; }
+          button { background: #0e639c; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 5px; cursor: pointer; margin-top: 20px; }
+          button:hover { background: #1177bb; }
+          #status { margin-top: 20px; font-size: 16px; color: #4ec9b0; }
+        </style>
       </head>
-      <body style="background: black; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center;">
-        <div>
-          <h2>Recording Screen in Background...</h2>
-          <p>Please select the screen you wish to record in the prompt above.</p>
-        </div>
+      <body>
+        <h1>Scrimba Screen Recorder</h1>
+        <p>Because VS Code blocks screen recording on Wayland, we use your browser!</p>
+        <button id="startBtn">Start Recording</button>
+        <div id="status"></div>
+
         <script>
-          const vscode = acquireVsCodeApi();
+          const btn = document.getElementById('startBtn');
+          const status = document.getElementById('status');
           let mediaRecorder;
 
-          async function start() {
+          btn.addEventListener('click', async () => {
             try {
               const stream = await navigator.mediaDevices.getDisplayMedia({ 
                 video: { frameRate: 30 },
@@ -83,37 +96,40 @@ export class ScreenCapture {
 
               mediaRecorder.ondataavailable = async (e) => {
                 if (e.data.size > 0) {
-                  const buffer = await e.data.arrayBuffer();
-                  // Convert ArrayBuffer to Base64 to send over postMessage safely
-                  let binary = '';
-                  const bytes = new Uint8Array(buffer);
-                  for (let i = 0; i < bytes.byteLength; i++) {
-                    binary += String.fromCharCode(bytes[i]);
+                  // Send raw binary blob to local server
+                  try {
+                    await fetch('/chunk', {
+                      method: 'POST',
+                      body: e.data
+                    });
+                  } catch (err) {
+                    console.error('Failed to send chunk:', err);
                   }
-                  const base64 = btoa(binary);
-                  vscode.postMessage({ command: 'chunk', data: base64 });
                 }
               };
 
-              // Request data every 1 second
+              mediaRecorder.onstop = () => {
+                status.innerText = "Recording stopped. You can close this tab.";
+                btn.style.display = 'block';
+                stream.getTracks().forEach(t => t.stop());
+              };
+
+              // Capture a chunk every 1 second
               mediaRecorder.start(1000);
-              vscode.postMessage({ command: 'started' });
+              
+              btn.style.display = 'none';
+              status.innerText = "Recording... Please minimize this window and return to VS Code.";
+              
+              // Automatically stop if the user stops sharing via the browser UI
+              stream.getVideoTracks()[0].onended = () => {
+                if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+              };
 
             } catch (err) {
-              vscode.postMessage({ command: 'error', text: err.toString() });
-            }
-          }
-
-          window.addEventListener('message', event => {
-            if (event.data.command === 'stop') {
-              if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-              }
+              status.innerText = 'Error: ' + err.toString();
+              status.style.color = '#f48771';
             }
           });
-
-          // Auto-start when loaded
-          start();
         </script>
       </body>
       </html>
