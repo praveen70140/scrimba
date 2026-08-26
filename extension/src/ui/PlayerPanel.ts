@@ -94,7 +94,7 @@ export class PlayerPanel {
       </head>
       <body>
         <div class="video-container">
-          <video id="vid" src="${videoUri}"></video>
+          <video id="vid" src="${videoUri}" controls autoplay></video>
         </div>
         
         <div class="timeline-container">
@@ -108,6 +108,9 @@ export class PlayerPanel {
           <button onclick="pauseVid()">Pause</button>
           <button onclick="fork()">Fork Here</button>
           <span id="timeDisplay">0:00</span>
+          <div style="font-size: 10px; word-break: break-all; margin-left: 10px; color: gray;">
+            ${videoUri.toString()}
+          </div>
         </div>
 
         <script>

@@ -2,14 +2,20 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
+import { exec } from 'child_process';
+import * as util from 'util';
+
+const execPromise = util.promisify(exec);
 
 export class ScreenCapture {
   private server: http.Server | undefined;
   private writeStream: fs.WriteStream | undefined;
+  private writeStreamPath: string | undefined;
   private isRecordingState: boolean = false;
 
   public async start(outputDir: string): Promise<void> {
     const outputPath = path.join(outputDir, 'screen.webm');
+    this.writeStreamPath = outputPath;
     this.writeStream = fs.createWriteStream(outputPath);
 
     this.server = http.createServer((req, res) => {
@@ -48,6 +54,19 @@ export class ScreenCapture {
     if (this.writeStream) {
       this.writeStream.end();
       this.writeStream = undefined;
+
+      // Fix WebM metadata (missing duration/index due to streaming chunks)
+      try {
+        if (this.writeStreamPath) {
+          const file = this.writeStreamPath;
+          const fixedFile = file.replace('.webm', '_fixed.webm');
+          await execPromise(`ffmpeg -y -i "${file}" -c copy "${fixedFile}"`);
+          fs.renameSync(fixedFile, file);
+          console.log('Fixed WebM metadata successfully');
+        }
+      } catch (err: any) {
+        console.warn('Failed to fix WebM metadata:', err.message);
+      }
     }
     
     if (this.server) {
