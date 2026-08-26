@@ -6,7 +6,10 @@ export class EventReplayer {
   private currentIndex = 0;
   private isSyncing = false;
   
-  constructor(private applicator: EditorApplicator) {}
+  constructor(
+    private applicator: EditorApplicator,
+    private onTerminalOutput?: (data: string) => void
+  ) {}
 
   public loadEvents(events: ScrimEvent[]) {
     this.events = events.sort((a, b) => a.t - b.t);
@@ -26,7 +29,13 @@ export class EventReplayer {
         const event = this.events[this.currentIndex];
         
         if (event.t <= absoluteTimeMs) {
-          await this.applicator.applyEvent(event);
+          if (event.type === 'terminal_out' && this.onTerminalOutput) {
+            this.onTerminalOutput(event.text);
+          } else if (event.type === 'terminal_cmd' && this.onTerminalOutput) {
+            this.onTerminalOutput(event.text + '\r\n');
+          } else {
+            await this.applicator.applyEvent(event);
+          }
           this.currentIndex++;
         } else {
           break;

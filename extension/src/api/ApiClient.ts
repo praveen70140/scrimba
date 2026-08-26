@@ -9,17 +9,20 @@ export class ApiClient {
     return config.get<string>('apiUrl') || 'http://localhost:4000';
   }
   private token: string | null = null;
+  private headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
 
-  public setToken(token: string) {
-    this.token = token;
-  }
-
-  private get headers() {
-    const h: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.token) {
-      h['Authorization'] = `Bearer ${this.token}`;
+  /**
+   * Sets the JWT token to be used for all authenticated requests.
+   * Pass undefined to remove the token.
+   */
+  public setToken(token: string | undefined): void {
+    if (token) {
+      this.headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete this.headers['Authorization'];
     }
-    return h;
   }
 
   // Helper to bypass VS Code's proxy-patched fetch

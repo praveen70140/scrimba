@@ -29,7 +29,9 @@ export class Player implements vscode.Disposable {
     private scrimFs: ScrimFS
   ) {
     this.editorApplicator = new EditorApplicator(this.scrimFs);
-    this.eventReplayer = new EventReplayer(this.editorApplicator);
+    this.eventReplayer = new EventReplayer(this.editorApplicator, (data) => {
+      this.terminalReplayer.write(data);
+    });
     this.forkManager = new ForkManager(this.session, this.scrimFs);
 
     // Listen to state transitions to trigger side-effects
@@ -77,19 +79,19 @@ export class Player implements vscode.Disposable {
 
   public async fork(): Promise<void> {
     if (this.stateManager.canTransition('FORKED')) {
-      this.stateManager.transition('FORKED');
       const forkUri = await this.forkManager.createFork();
       await WorkspaceManager.openEditable(forkUri);
+      this.stateManager.transition('FORKED');
     }
   }
 
   public async resumeFromFork(): Promise<void> {
     if (this.stateManager.canTransition('PLAYING')) {
-      this.forkManager.clearActiveFork();
       // Re-open teacher readonly workspace (handled by caller passing teacherDir)
       if (this.session.teacherDir) {
         await WorkspaceManager.openEditable(vscode.Uri.file(this.session.teacherDir));
       }
+      this.forkManager.clearActiveFork();
       this.stateManager.transition('PLAYING');
     }
   }

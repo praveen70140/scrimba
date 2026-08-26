@@ -59,9 +59,16 @@ export class PlayerPanel {
     // the webcam.mp4 and audio.ogg, or load them directly via Webview URIs if small enough.
     // For now, we mock the UI with HTML/CSS.
 
+    const escapeHtml = (unsafe: string) => unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+
     const chapters = this.session.events
       .filter(e => e.type === 'chapter')
-      .map(e => `<div class="marker chapter" style="left: ${(e.t / (this.session.lessonMeta.durationMs || 1)) * 100}%" title="${(e as any).title}"></div>`)
+      .map(e => `<div class="marker chapter" style="left: ${(e.t / (this.session.lessonMeta.durationMs || 1)) * 100}%" title="${escapeHtml((e as any).title)}"></div>`)
       .join('');
 
     return `
@@ -69,6 +76,7 @@ export class PlayerPanel {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
           body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; }
           .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }

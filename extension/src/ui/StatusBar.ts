@@ -5,6 +5,8 @@ import { StateManager } from '../core/StateManager';
 
 export class StatusBar implements vscode.Disposable {
   private item: vscode.StatusBarItem;
+  private disposables: vscode.Disposable[] = [];
+  private ticker: NodeJS.Timeout;
 
   constructor(
     private session: ScrimSession,
@@ -12,14 +14,10 @@ export class StatusBar implements vscode.Disposable {
     private stateManager: StateManager
   ) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);
-    this.item.command = 'scrim.togglePlayPause'; // We'll register this in extension.ts
     
-    this.stateManager.onDidTransition(() => this.update());
-    // Also need to update on time progress... 
-    // In a full implementation we'd hook an onDidTick event from the Player,
-    // but for now we'll just set an interval when playing.
+    this.disposables.push(this.stateManager.onDidTransition(() => this.update()));
     
-    setInterval(() => this.update(), 1000);
+    this.ticker = setInterval(() => this.update(), 1000);
     this.update();
   }
 
@@ -34,6 +32,10 @@ export class StatusBar implements vscode.Disposable {
   private update(): void {
     const state = this.session.playerState;
     const time = ScrimSession.formatTime(this.session.currentTimeMs);
+
+    // Reset default command and color
+    this.item.command = 'scrim.togglePlayPause';
+    this.item.color = undefined;
 
     if (state === 'IDLE') {
       this.item.text = `$(play) Scrimba: Ready`;
@@ -59,12 +61,12 @@ export class StatusBar implements vscode.Disposable {
       this.item.tooltip = 'Click to Stop Recording';
       this.item.command = 'scrim.stopRecording';
       this.item.color = new vscode.ThemeColor('errorForeground');
-    } else {
-      this.item.color = undefined;
     }
   }
 
   public dispose(): void {
+    clearInterval(this.ticker);
+    for (const d of this.disposables) { d.dispose(); }
     this.item.dispose();
   }
 }

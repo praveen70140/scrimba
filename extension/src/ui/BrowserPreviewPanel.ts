@@ -50,12 +50,33 @@ export class BrowserPreviewPanel {
     });
   }
 
-  private getLiveHtml(url: string): string {
+  private getLiveHtml(urlStr: string): string {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(urlStr);
+      if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+        throw new Error('Invalid protocol');
+      }
+    } catch {
+      return `<body>Invalid URL</body>`;
+    }
+    
+    // Simple HTML escape
+    const escapeHtml = (unsafe: string) => unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+         
+    const safeUrl = escapeHtml(parsedUrl.href);
+
     return `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${safeUrl}; style-src 'unsafe-inline';">
         <style>
           body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: white; }
           iframe { width: 100%; height: 100%; border: none; }
@@ -66,9 +87,9 @@ export class BrowserPreviewPanel {
       <body>
         <div class="header">
           <span>🔄</span>
-          <div class="url-bar">${url}</div>
+          <div class="url-bar">${safeUrl}</div>
         </div>
-        <iframe src="${url}"></iframe>
+        <iframe src="${safeUrl}"></iframe>
       </body>
       </html>
     `;
