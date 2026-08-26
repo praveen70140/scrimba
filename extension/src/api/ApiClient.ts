@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { Course, Lesson } from '@scrimba-clone/shared';
+import * as http from 'http';
+import * as https from 'https';
 
 export class ApiClient {
   private get baseUrl() {
-    // Read from VS Code configuration, defaulting to local but requiring HTTPS for production
     const config = vscode.workspace.getConfiguration('scrim');
     return config.get<string>('apiUrl') || 'http://localhost:4000';
   }
@@ -16,62 +17,78 @@ export class ApiClient {
   private get headers() {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.token) {
-      // Security: In production, the API URL MUST be HTTPS to protect the bearer token.
       h['Authorization'] = `Bearer ${this.token}`;
     }
     return h;
   }
 
+  // Helper to bypass VS Code's proxy-patched fetch
+  private request<T>(method: string, path: string, body?: any): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(`${this.baseUrl}${path}`);
+      const lib = url.protocol === 'https:' ? https : http;
+      
+      const req = lib.request(url, {
+        method,
+        headers: this.headers,
+        agent: false // explicitly disable connection pooling / proxy agents
+      }, (res) => {
+        let data = '';
+        // setEncoding ensures multi-byte UTF-8 chars never span chunks
+        res.setEncoding('utf8');
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            try { resolve(data ? JSON.parse(data) : null); }
+            catch (e) { reject(new Error('Invalid JSON response')); }
+          } else {
+            reject(new Error(`API Error: ${res.statusCode} ${res.statusMessage}`));
+          }
+        });
+        // Handle response stream errors and premature close
+        res.on('error', reject);
+        res.on('close', () => {
+          if (!res.complete) {
+            reject(new Error('Response stream closed prematurely'));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      if (body) {
+        req.write(JSON.stringify(body));
+      }
+      req.end();
+    });
+  }
+
   public async getCourses(): Promise<Course[]> {
-    const res = await fetch(`${this.baseUrl}/courses`, { headers: this.headers });
-    if (!res.ok) throw new Error('Failed to fetch courses');
-    return res.json() as Promise<Course[]>;
+    return this.request<Course[]>('GET', '/courses');
   }
 
   public async getLessons(courseId: string): Promise<Lesson[]> {
-    const res = await fetch(`${this.baseUrl}/courses/${encodeURIComponent(courseId)}/lessons`, { headers: this.headers });
-    if (!res.ok) throw new Error('Failed to fetch lessons');
-    return res.json() as Promise<Lesson[]>;
+    return this.request<Lesson[]>('GET', `/courses/${encodeURIComponent(courseId)}/lessons`);
   }
 
   public async enroll(courseId: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/enroll/${encodeURIComponent(courseId)}`, {
-      method: 'POST',
-      headers: this.headers
-    });
-    if (!res.ok) throw new Error('Failed to enroll');
+    return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }
 
-  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; video_url: string; timecodes_url: string }> {
-    const res = await fetch(`${this.baseUrl}/lessons/${encodeURIComponent(lessonId)}/download-urls`, { headers: this.headers });
-    if (!res.ok) throw new Error('Failed to get download URLs');
-    return res.json() as Promise<any>;
+  public async getDownloadUrls(lessonId: string): Promise<any> {
+    return this.request<any>('GET', `/lessons/${encodeURIComponent(lessonId)}/download-urls`);
   }
 
-  public async getUploadUrls(lessonId: string): Promise<{ scrim_url: string; video_url: string; timecodes_url: string }> {
-    const res = await fetch(`${this.baseUrl}/lessons/${encodeURIComponent(lessonId)}/upload-urls`, {
-      method: 'POST',
-      headers: this.headers
-    });
-    if (!res.ok) throw new Error('Failed to get upload URLs');
-    return res.json() as Promise<any>;
+  public async getUploadUrls(lessonId: string): Promise<any> {
+    return this.request<any>('POST', `/lessons/${encodeURIComponent(lessonId)}/upload-urls`);
   }
 
   public async publishLesson(lessonId: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/lessons/${encodeURIComponent(lessonId)}/publish`, {
-      method: 'POST',
-      headers: this.headers
-    });
-    if (!res.ok) throw new Error('Failed to publish lesson');
+    return this.request<void>('POST', `/lessons/${encodeURIComponent(lessonId)}/publish`);
   }
 
   public async markComplete(lessonId: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/progress/${encodeURIComponent(lessonId)}`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({ completed: true })
-    });
-    if (!res.ok) throw new Error('Failed to mark complete');
+    return this.request<void>('POST', `/progress/${encodeURIComponent(lessonId)}`, { completed: true });
   }
 }
+
 

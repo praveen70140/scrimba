@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
+import { ApiClient } from '../api/ApiClient';
 
 export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-  private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined | null | void> = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
+  private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private apiClient = new ApiClient();
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -12,13 +14,28 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
     return element;
   }
 
-  getChildren(element?: vscode.TreeItem): Thenable<vscode.TreeItem[]> {
+  async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     if (element) {
-      return Promise.resolve([]);
+      return [];
     }
     
-    // Placeholder for API fetch
-    const placeholder = new vscode.TreeItem('Loading courses...', vscode.TreeItemCollapsibleState.None);
-    return Promise.resolve([placeholder]);
+    try {
+      const courses = await this.apiClient.getCourses();
+      if (courses.length === 0) {
+        return [new vscode.TreeItem('No courses published yet.', vscode.TreeItemCollapsibleState.None)];
+      }
+
+      return courses.map(c => {
+        const item = new vscode.TreeItem(c.title, vscode.TreeItemCollapsibleState.None);
+        item.description = c.description || undefined;
+        item.iconPath = new vscode.ThemeIcon('cloud');
+        return item;
+      });
+    } catch (e: any) {
+      console.error('[CatalogView] Failed to fetch courses:', e.message, e);
+      const errItem = new vscode.TreeItem('Failed to connect to backend.', vscode.TreeItemCollapsibleState.None);
+      errItem.description = "Is `bun run dev:backend` running?";
+      return [errItem];
+    }
   }
 }

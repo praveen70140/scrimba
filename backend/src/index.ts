@@ -14,6 +14,6 @@ app.route('/courses', coursesRouter);
 app.route('/lessons', lessonsRouter);
 
 export default {
-  port: process.env.PORT || 3000,
+  port: process.env.PORT || 4000,
   fetch: app.fetch,
 };

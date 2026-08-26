@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@prisma/client": "^7.10.0",
+    "@prisma/client": "^5.10.2",
     "@scrimba-clone/shared": "workspace:*",
     "hono": "^4.13.4"
   },
   "devDependencies": {
     "bun-types": "^1.4.0",
-    "prisma": "^8.0.0-rc.10",
+    "prisma": "^5.10.2",
     "typescript": "^5.0.0"
   }
 }

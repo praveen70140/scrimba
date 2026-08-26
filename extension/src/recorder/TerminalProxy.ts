@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
-import * as pty from 'node-pty';
 import * as os from 'os';
 
 export class TerminalProxy {
-  private ptyProcess: pty.IPty;
+  private ptyProcess: any;
   private writeEmitter = new vscode.EventEmitter<string>();
   private closeEmitter = new vscode.EventEmitter<number | void>();
   private terminal: vscode.Terminal;
@@ -17,30 +16,49 @@ export class TerminalProxy {
   constructor(cwd: string) {
     const shell = process.env[os.platform() === 'win32' ? 'COMSPEC' : 'SHELL'] || 'bash';
     
-    // Spawn a real backend PTY process
-    this.ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-color',
-      cols: 80,
-      rows: 30,
-      cwd: cwd,
-      env: process.env as any
-    });
+    try {
+      // Dynamically require node-pty so the extension doesn't crash on startup 
+      // if the native C++ bindings aren't compiled for the current Electron ABI.
+      const pty = require('node-pty');
+      this.ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-color',
+        cols: 80,
+        rows: 30,
+        cwd: cwd,
+        env: process.env as any
+      });
 
-    this.ptyProcess.onData((data) => {
-      if (this.isOpen) {
-        this.writeEmitter.fire(data);
-        this.onDidReceiveOutput.fire(data);
-      } else {
-        this.outputBuffer.push(data);
-      }
-    });
+      this.ptyProcess.onData((data: string) => {
+        if (this.isOpen) {
+          this.writeEmitter.fire(data);
+          this.onDidReceiveOutput.fire(data);
+        } else {
+          this.outputBuffer.push(data);
+        }
+      });
 
-    this.ptyProcess.onExit((e) => {
-      this.closeEmitter.fire(e.exitCode);
-    });
+      this.ptyProcess.onExit((e: any) => {
+        this.closeEmitter.fire(e.exitCode);
+      });
+    } catch (err) {
+      console.error("Failed to load node-pty. Using mock terminal proxy.", err);
+      // Fallback mock so the user can still test the rest of the extension
+      this.ptyProcess = {
+        write: (data: string) => {
+          const mockData = `[Mock PTY Echo]: ${data}\r\n`;
+          this.writeEmitter.fire(mockData);
+          if (this.isOpen) {
+            this.onDidReceiveOutput.fire(mockData);
+          } else {
+            this.outputBuffer.push(mockData);
+          }
+        },
+        kill: () => {}
+      };
+    }
 
-    // Create the VS Code Pseudoterminal frontend
     const ptyProxy: vscode.Pseudoterminal = {
+
       onDidWrite: this.writeEmitter.event,
       onDidClose: this.closeEmitter.event,
       open: () => {

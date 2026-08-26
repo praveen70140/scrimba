@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 const coursesRouter = new Hono();
 
 coursesRouter.get('/', async (c) => {
-  return c.json({ courses: [] });
+  return c.json([]);
 });
 
 coursesRouter.get('/:id', async (c) => {
