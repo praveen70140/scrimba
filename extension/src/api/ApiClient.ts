@@ -31,13 +31,20 @@ export class ApiClient {
       const url = new URL(`${this.baseUrl}${path}`);
       const lib = url.protocol === 'https:' ? https : http;
       
+      const requestHeaders = { ...this.headers };
+      let bodyData: string | undefined;
+      
+      if (body) {
+        bodyData = JSON.stringify(body);
+        requestHeaders['Content-Length'] = Buffer.byteLength(bodyData).toString();
+      }
+
       const req = lib.request(url, {
         method,
-        headers: this.headers,
-        agent: false // explicitly disable connection pooling / proxy agents
+        headers: requestHeaders,
+        agent: false
       }, (res) => {
         let data = '';
-        // setEncoding ensures multi-byte UTF-8 chars never span chunks
         res.setEncoding('utf8');
         res.on('data', chunk => { data += chunk; });
         res.on('end', () => {
@@ -59,8 +66,8 @@ export class ApiClient {
       });
 
       req.on('error', reject);
-      if (body) {
-        req.write(JSON.stringify(body));
+      if (bodyData) {
+        req.write(bodyData);
       }
       req.end();
     });

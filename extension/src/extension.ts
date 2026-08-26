@@ -58,8 +58,11 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!password) { return; }
       try {
         const res = await apiClient.login(email, password);
+        if (!res || !res.token) {
+          throw new Error('No token received from backend.');
+        }
         await auth.setToken(res.token);
-        vscode.window.showInformationMessage(`Logged in as ${res.user.email}`);
+        vscode.window.showInformationMessage(`Logged in as ${res.user?.email}`);
       } catch (e: any) {
         vscode.window.showErrorMessage('Login failed: ' + e.message);
       }
@@ -74,8 +77,11 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!password) return;
       try {
         const res = await apiClient.register(email, username, password);
+        if (!res || !res.token) {
+          throw new Error('No token received from backend. Check if the server is running properly.');
+        }
         await auth.setToken(res.token);
-        vscode.window.showInformationMessage(`Registered and logged in as ${res.user.username}`);
+        vscode.window.showInformationMessage(`Registered and logged in as ${res.user?.username}`);
       } catch (e: any) {
         vscode.window.showErrorMessage('Registration failed: ' + e.message);
       }
