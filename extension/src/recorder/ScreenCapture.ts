@@ -35,6 +35,11 @@ export class ScreenCapture {
           res.writeHead(200);
           res.end('ok');
         });
+      } else if (req.method === 'POST' && req.url === '/stop') {
+        res.writeHead(200);
+        res.end('ok');
+        // Browser explicitly stopped recording
+        vscode.commands.executeCommand('scrimba.stopRecording');
       }
     });
 
@@ -130,7 +135,8 @@ export class ScreenCapture {
 
               mediaRecorder.onstop = () => {
                 // Ensure all uploads finish before we consider it stopped
-                uploadQueue.then(() => {
+                uploadQueue.then(async () => {
+                  try { await fetch('/stop', { method: 'POST' }); } catch(e) {}
                   status.innerText = "Recording stopped. You can close this tab.";
                   btn.style.display = 'block';
                 });

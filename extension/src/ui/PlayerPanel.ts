@@ -71,7 +71,9 @@ export class PlayerPanel {
   }
 
   private getHtml(lessonDir: string): string {
-    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.webm')));
+    const rawUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.webm')));
+    // MUST add a cache buster, otherwise VS Code aggressively caches the broken/in-progress video file!
+    const videoUri = `${rawUri.toString()}?t=${Date.now()}`;
     const cspSource = this.panel!.webview.cspSource;
 
     return `
