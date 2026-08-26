@@ -41,6 +41,7 @@ export class ApiClient {
         res.setEncoding('utf8');
         res.on('data', chunk => { data += chunk; });
         res.on('end', () => {
+          console.log(`[ApiClient] ${method} ${path} -> ${res.statusCode} (data: ${data})`);
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             try { resolve(data ? JSON.parse(data) : null); }
             catch (e) { reject(new Error('Invalid JSON response')); }

@@ -20,7 +20,7 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
     }
     
     try {
-      const courses = await this.apiClient.getCourses();
+      const courses = (await this.apiClient.getCourses()) || [];
       if (courses.length === 0) {
         return [new vscode.TreeItem('No courses published yet.', vscode.TreeItemCollapsibleState.None)];
       }
