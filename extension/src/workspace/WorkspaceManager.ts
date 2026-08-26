@@ -14,6 +14,29 @@ export class WorkspaceManager {
     await vscode.workspace.fs.writeFile(manifestUri, content);
   }
 
+  static async getCourseTitle(courseId: string): Promise<string> {
+    try {
+      const manifestUri = vscode.Uri.file(Paths.getCourseDir(courseId) + '/course.json');
+      const content = await vscode.workspace.fs.readFile(manifestUri);
+      const manifest = JSON.parse(Buffer.from(content).toString('utf-8'));
+      return manifest.title || courseId;
+    } catch {
+      return courseId;
+    }
+  }
+
+  static async getLessonTitle(courseId: string, lessonId: string): Promise<string> {
+    try {
+      // If it has a lesson.scrim, read its metadata
+      const scrimUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId) + '/lesson.scrim');
+      const { ScrimReader } = require('../core/ScrimReader');
+      const data = await ScrimReader.read(scrimUri.fsPath);
+      return data.meta.title || lessonId;
+    } catch {
+      return lessonId;
+    }
+  }
+
   /**
    * Creates an empty starter directory for a new lesson
    */

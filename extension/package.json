@@ -13,19 +13,28 @@
     "commands": [
       {
         "command": "scrim.newCourse",
-        "title": "Scrim: New Course"
+        "title": "Scrim: New Course",
+        "icon": "$(add)"
       },
       {
         "command": "scrim.newLesson",
-        "title": "Scrim: New Lesson"
+        "title": "Scrim: New Lesson",
+        "icon": "$(add)"
       },
       {
         "command": "scrim.startRecording",
-        "title": "Scrim: Start Recording"
+        "title": "Scrim: Start Recording",
+        "icon": "$(record)"
       },
       {
         "command": "scrim.stopRecording",
-        "title": "Scrim: Stop Recording"
+        "title": "Scrim: Stop Recording",
+        "icon": "$(stop)"
+      },
+      {
+        "command": "scrim.openLessonWorkspace",
+        "title": "Scrim: Open Lesson Workspace",
+        "icon": "$(edit)"
       },
       {
         "command": "scrim.markChapter",
@@ -37,11 +46,13 @@
       },
       {
         "command": "scrim.previewLesson",
-        "title": "Scrim: Play Recorded Lesson"
+        "title": "Scrim: Play Recorded Lesson",
+        "icon": "$(play)"
       },
       {
         "command": "scrim.publishLesson",
-        "title": "Scrim: Publish Lesson"
+        "title": "Scrim: Publish Lesson",
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "scrim.fork",
@@ -68,6 +79,37 @@
         "title": "Scrim: Logout"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "scrim.newCourse",
+          "when": "view == scrim.myCourses",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "scrim.newLesson",
+          "when": "view == scrim.myCourses && viewItem == course",
+          "group": "inline"
+        },
+        {
+          "command": "scrim.openLessonWorkspace",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        },
+        {
+          "command": "scrim.startRecording",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        },
+        {
+          "command": "scrim.previewLesson",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

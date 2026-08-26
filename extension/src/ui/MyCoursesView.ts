@@ -3,6 +3,35 @@ import * as fs from 'fs/promises';
 import { Paths } from '../utils/Paths';
 import * as path from 'path';
 
+import { WorkspaceManager } from '../workspace/WorkspaceManager';
+
+export class CourseTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+    public readonly courseId: string,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+  ) {
+    super(label, collapsibleState);
+    this.contextValue = 'course';
+    this.iconPath = new vscode.ThemeIcon('repo');
+    this.description = courseId;
+  }
+}
+
+export class LessonTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+    public readonly courseId: string,
+    public readonly lessonId: string,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+  ) {
+    super(label, collapsibleState);
+    this.contextValue = 'lesson';
+    this.iconPath = new vscode.ThemeIcon('play-circle');
+    this.description = lessonId;
+  }
+}
+
 export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -16,26 +45,34 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
   }
 
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
-    if (element) {
-      // If clicking a course, list its lessons (placeholder)
-      return [];
+    if (element && element instanceof CourseTreeItem) {
+      // List lessons for this course
+      const items: vscode.TreeItem[] = [];
+      try {
+        const courseDir = path.join(Paths.getBaseDir(), 'courses', element.courseId);
+        const dirs = await fs.readdir(courseDir, { withFileTypes: true });
+        for (const d of dirs) {
+          if (d.isDirectory() && d.name.startsWith('lesson-')) {
+            const title = await WorkspaceManager.getLessonTitle(element.courseId, d.name);
+            items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.None));
+          }
+        }
+      } catch (e: any) {
+        console.warn('Failed to load lessons for course:', e);
+      }
+      return items;
     }
     
+    // Root level: list courses
     const items: vscode.TreeItem[] = [];
-
-    const newCourseItem = new vscode.TreeItem('Create New Course', vscode.TreeItemCollapsibleState.None);
-    newCourseItem.command = { command: 'scrim.newCourse', title: 'New Course' };
-    newCourseItem.iconPath = new vscode.ThemeIcon('add');
-    items.push(newCourseItem);
 
     try {
       const coursesDir = path.join(Paths.getBaseDir(), 'courses');
       const dirs = await fs.readdir(coursesDir, { withFileTypes: true });
       for (const d of dirs) {
         if (d.isDirectory()) {
-          const courseItem = new vscode.TreeItem(d.name, vscode.TreeItemCollapsibleState.None);
-          courseItem.iconPath = new vscode.ThemeIcon('book');
-          items.push(courseItem);
+          const title = await WorkspaceManager.getCourseTitle(d.name);
+          items.push(new CourseTreeItem(title, d.name, vscode.TreeItemCollapsibleState.Collapsed));
         }
       }
     } catch (e: any) {
@@ -44,6 +81,14 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
         errorItem.description = e.message;
         items.push(errorItem);
       }
+    }
+
+    // Add a quick action item at the bottom if no courses exist, else just show the list
+    if (items.length === 0) {
+      const newCourseItem = new vscode.TreeItem('Create New Course', vscode.TreeItemCollapsibleState.None);
+      newCourseItem.command = { command: 'scrim.newCourse', title: 'New Course' };
+      newCourseItem.iconPath = new vscode.ThemeIcon('add');
+      items.push(newCourseItem);
     }
 
     return items;

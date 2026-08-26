@@ -98,20 +98,25 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     // ── Lessons & Recording ──────────────────────────────────────────────────
-    vscode.commands.registerCommand('scrim.newLesson', async () => {
-      const coursesDir = Paths.getBaseDir();
-      const fs = require('fs') as typeof import('fs');
-      let courseDirs: string[] = [];
-      try {
-        courseDirs = fs.readdirSync(path.join(coursesDir, 'courses'))
-          .filter((d: string) => fs.statSync(path.join(coursesDir, 'courses', d)).isDirectory());
-      } catch {}
+    vscode.commands.registerCommand('scrim.newLesson', async (item?: any) => {
+      let courseId = item?.courseId;
 
-      if (courseDirs.length === 0) {
-        vscode.window.showWarningMessage('No courses found.');
-        return;
+      if (!courseId) {
+        const coursesDir = Paths.getBaseDir();
+        const fs = require('fs') as typeof import('fs');
+        let courseDirs: string[] = [];
+        try {
+          courseDirs = fs.readdirSync(path.join(coursesDir, 'courses'))
+            .filter((d: string) => fs.statSync(path.join(coursesDir, 'courses', d)).isDirectory());
+        } catch {}
+
+        if (courseDirs.length === 0) {
+          vscode.window.showWarningMessage('No courses found.');
+          return;
+        }
+        courseId = await vscode.window.showQuickPick(courseDirs, { placeHolder: 'Select the course this lesson belongs to' });
       }
-      const courseId = await vscode.window.showQuickPick(courseDirs, { placeHolder: 'Select the course this lesson belongs to' });
+
       if (!courseId) { return; }
       const title = await vscode.window.showInputBox({ prompt: 'Lesson title' });
       if (!title) { return; }
@@ -128,18 +133,34 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`Lesson "${title}" created! Press "Scrim: Start Recording" when ready.`);
     }),
 
-    vscode.commands.registerCommand('scrim.startRecording', async () => {
+    vscode.commands.registerCommand('scrim.openLessonWorkspace', async (item?: any) => {
+      if (!item || !item.courseId || !item.lessonId) {
+        vscode.window.showErrorMessage('No lesson selected.');
+        return;
+      }
+      const lessonDir = vscode.Uri.file(Paths.getStarterDir(item.courseId, item.lessonId));
+      await WorkspaceManager.openEditable(lessonDir);
+    }),
+
+    vscode.commands.registerCommand('scrim.startRecording', async (item?: any) => {
       if (session.isRecording) {
         vscode.window.showWarningMessage('Recording already in progress.');
         return;
       }
-      const wsFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!wsFolder) {
-        vscode.window.showErrorMessage('Open a lesson workspace first before recording.');
+      
+      let wsFolder = vscode.workspace.workspaceFolders?.[0];
+      let lessonDir = wsFolder ? path.dirname(wsFolder.uri.fsPath) : undefined;
+      
+      // If triggered from tree view, use the tree item's path directly
+      if (item && item.courseId && item.lessonId) {
+        lessonDir = Paths.getLessonDir(item.courseId, item.lessonId);
+      }
+
+      if (!lessonDir) {
+        vscode.window.showErrorMessage('Open a lesson workspace first before recording, or start it from the My Courses view.');
         return;
       }
       
-      const lessonDir = path.dirname(wsFolder.uri.fsPath); // e.g. ~/.scrimba/courses/<cId>/lessons/<lId>
       recorder = new Recorder(session, lessonDir);
       
       // Start recording
@@ -183,15 +204,21 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     // ── Preview & Publish ────────────────────────────────────────────────────
-    vscode.commands.registerCommand('scrim.previewLesson', async () => {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (!workspaceFolders) {
-        vscode.window.showErrorMessage('No lesson workspace open.');
-        return;
-      }
-      let lessonDir = workspaceFolders[0].uri.fsPath;
-      if (path.basename(lessonDir) === 'starter') {
-        lessonDir = path.dirname(lessonDir);
+    vscode.commands.registerCommand('scrim.previewLesson', async (item?: any) => {
+      let lessonDir: string | undefined;
+
+      if (item && item.courseId && item.lessonId) {
+        lessonDir = Paths.getLessonDir(item.courseId, item.lessonId);
+      } else {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage('No lesson workspace open.');
+          return;
+        }
+        lessonDir = workspaceFolders[0].uri.fsPath;
+        if (path.basename(lessonDir) === 'starter') {
+          lessonDir = path.dirname(lessonDir);
+        }
       }
       const scrimFile = path.join(lessonDir, 'lesson.scrim');
       
