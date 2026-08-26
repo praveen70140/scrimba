@@ -31,11 +31,7 @@
         "title": "Scrim: Stop Recording",
         "icon": "$(stop)"
       },
-      {
-        "command": "scrim.openLessonWorkspace",
-        "title": "Scrim: Open Lesson Workspace",
-        "icon": "$(edit)"
-      },
+
       {
         "command": "scrim.markChapter",
         "title": "Scrim: Mark Chapter Here"
@@ -91,11 +87,6 @@
         {
           "command": "scrim.newLesson",
           "when": "view == scrim.myCourses && viewItem == course",
-          "group": "inline"
-        },
-        {
-          "command": "scrim.openLessonWorkspace",
-          "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "inline"
         },
         {

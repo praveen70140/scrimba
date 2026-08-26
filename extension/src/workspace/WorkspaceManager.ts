@@ -90,28 +90,6 @@ export class WorkspaceManager {
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
-  /**
-   * Opens a folder dynamically in the current window for the teacher, without reloading (if possible)
-   */
-  static async openForTeacher(uri: vscode.Uri, title: string): Promise<void> {
-    const folders = vscode.workspace.workspaceFolders || [];
-    
-    // Check if it's already open
-    if (folders.some(f => f.uri.fsPath === uri.fsPath)) {
-      return;
-    }
-
-    // Find any existing lesson folder in the workspace to replace, 
-    // keeping the user's original folders intact to prevent window reloads.
-    const targetPath = require('path').join('.scrimba', 'courses');
-    const existingIndex = folders.findIndex(f => f.uri.fsPath.includes(targetPath));
-    
-    if (existingIndex >= 0) {
-      vscode.workspace.updateWorkspaceFolders(existingIndex, 1, { uri, name: title });
-    } else {
-      vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri, name: title });
-    }
-  }
 
   /**
    * Opens a fork in a new window so the current player session is not destroyed

@@ -32,6 +32,26 @@ export class LessonTreeItem extends vscode.TreeItem {
   }
 }
 
+export class FileTreeItem extends vscode.TreeItem {
+  constructor(
+    public readonly label: string,
+    public readonly filePath: string,
+    public readonly isDir: boolean,
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+  ) {
+    super(label, collapsibleState);
+    this.contextValue = 'file';
+    this.iconPath = isDir ? vscode.ThemeIcon.Folder : vscode.ThemeIcon.File;
+    if (!isDir) {
+      this.command = {
+        command: 'vscode.open',
+        title: 'Open File',
+        arguments: [vscode.Uri.file(filePath)]
+      };
+    }
+  }
+}
+
 export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -54,13 +74,25 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
         for (const d of dirs) {
           if (d.isDirectory() && d.name.startsWith('lesson-')) {
             const title = await WorkspaceManager.getLessonTitle(element.courseId, d.name);
-            items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.None));
+            items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.Collapsed));
           }
         }
       } catch (e: any) {
         console.warn('Failed to load lessons for course:', e);
       }
       return items;
+    }
+
+    if (element && element instanceof LessonTreeItem) {
+      const starterDir = Paths.getStarterDir(element.courseId, element.lessonId);
+      return this.getFilesForDir(starterDir);
+    }
+
+    if (element && element instanceof FileTreeItem) {
+      if (element.isDir) {
+        return this.getFilesForDir(element.filePath);
+      }
+      return [];
     }
     
     // Root level: list courses
@@ -91,6 +123,31 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
       items.push(newCourseItem);
     }
 
+    return items;
+  }
+
+  private async getFilesForDir(dirPath: string): Promise<vscode.TreeItem[]> {
+    const items: vscode.TreeItem[] = [];
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      // Sort directories first, then files
+      entries.sort((a, b) => {
+        if (a.isDirectory() && !b.isDirectory()) return -1;
+        if (!a.isDirectory() && b.isDirectory()) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      for (const entry of entries) {
+        // Skip hidden files/folders (except maybe .gitignore?)
+        if (entry.name.startsWith('.')) continue;
+
+        const fullPath = path.join(dirPath, entry.name);
+        const state = entry.isDirectory() ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
+        items.push(new FileTreeItem(entry.name, fullPath, entry.isDirectory(), state));
+      }
+    } catch (e: any) {
+      console.warn(`Failed to read directory ${dirPath}:`, e);
+    }
     return items;
   }
 }
