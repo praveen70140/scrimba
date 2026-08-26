@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { ScrimSession } from '../core/ScrimSession';
 import { Player } from '../player/Player';
 import * as path from 'path';
-import * as fs from 'fs';
 
 export class PlayerPanel {
   private panel: vscode.WebviewPanel | undefined;
@@ -72,24 +71,15 @@ export class PlayerPanel {
   }
 
   private getHtml(lessonDir: string): string {
-    const videoPath = path.join(lessonDir, 'screen.webm');
-    let videoDataUri = '';
-    
-    try {
-      if (fs.existsSync(videoPath)) {
-        const buffer = fs.readFileSync(videoPath);
-        videoDataUri = `data:video/webm;base64,${buffer.toString('base64')}`;
-      }
-    } catch (e) {
-      console.error('Failed to read video file', e);
-    }
+    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.webm')));
+    const cspSource = this.panel!.webview.cspSource;
 
     return `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${cspSource} https: vscode-webview-resource: blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
           body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; }
           .video-container { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
@@ -104,7 +94,7 @@ export class PlayerPanel {
       </head>
       <body>
         <div class="video-container">
-          <video id="vid" src="${videoDataUri}" controls autoplay></video>
+          <video id="vid" src="${videoUri}" controls autoplay></video>
         </div>
         
         <div class="timeline-container">
@@ -119,7 +109,7 @@ export class PlayerPanel {
           <button onclick="fork()">Fork Here</button>
           <span id="timeDisplay">0:00</span>
           <div style="font-size: 10px; margin-left: 10px; color: gray;">
-            Using Data URI (${videoDataUri ? 'Loaded' : 'Not Found'})
+            Using asWebviewUri
           </div>
         </div>
 
