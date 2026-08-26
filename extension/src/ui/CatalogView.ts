@@ -34,7 +34,7 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
     } catch (e: any) {
       console.error('[CatalogView] Failed to fetch courses:', e.message, e);
       const errItem = new vscode.TreeItem('Failed to connect to backend.', vscode.TreeItemCollapsibleState.None);
-      errItem.description = "Is `bun run dev:backend` running?";
+      errItem.description = "Is `bun run --hot src/index.ts` running?";
       return [errItem];
     }
   }
