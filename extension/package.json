@@ -37,7 +37,7 @@
       },
       {
         "command": "scrim.previewLesson",
-        "title": "Scrim: Preview This Lesson"
+        "title": "Scrim: Play Recorded Lesson"
       },
       {
         "command": "scrim.publishLesson",
@@ -46,6 +46,10 @@
       {
         "command": "scrim.fork",
         "title": "Scrim: Fork Here"
+      },
+      {
+        "command": "scrim.togglePlayPause",
+        "title": "Scrim: Toggle Play/Pause"
       },
       {
         "command": "scrim.resume",

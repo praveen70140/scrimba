@@ -192,8 +192,22 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     // ── Preview & Publish ────────────────────────────────────────────────────
-    vscode.commands.registerCommand('scrim.previewLesson', () => {
-      browserPanel.showLive('http://localhost:3000');
+    vscode.commands.registerCommand('scrim.previewLesson', async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders) {
+        vscode.window.showErrorMessage('No lesson workspace open.');
+        return;
+      }
+      const lessonDir = workspaceFolders[0].uri.fsPath;
+      const scrimFile = path.join(lessonDir, 'lesson.scrim');
+      
+      try {
+        await player.loadLesson(scrimFile);
+        playerPanel.show();
+        browserPanel.showRecordedVideo();
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to load lesson: ' + e.message);
+      }
     }),
 
     vscode.commands.registerCommand('scrim.publishLesson', async () => {
