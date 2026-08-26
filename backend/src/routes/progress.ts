@@ -9,8 +9,14 @@ progressRouter.post('/:lessonId', authMiddleware, async (c) => {
   const lessonId = c.req.param('lessonId');
   if (!lessonId) return c.json({ error: 'Missing lessonId' }, 400);
   const user = c.get('user');
-  const { completed } = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
 
+  const completed = (body as { completed?: unknown } | null)?.completed;
   if (typeof completed !== 'boolean') {
     return c.json({ error: 'completed must be a boolean' }, 400);
   }

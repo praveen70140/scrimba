@@ -55,25 +55,34 @@ export class Recorder {
     const videoDevice = (await FfmpegWrapper.detectVideoDevices())[0];
 
     if (audioDevice) {
-      await this.audioCapture.start(this.lessonDir, audioDevice.path).catch(e =>
-        console.warn('[Recorder] Audio capture failed (no mic?):', e?.message ?? e)
-      );
+      try {
+        await this.audioCapture.start(this.lessonDir, audioDevice.path);
+        (this as any).audioStarted = true;
+      } catch (e: any) {
+        console.warn('[Recorder] Audio capture failed (no mic?):', e?.message ?? e);
+      }
     } else {
       console.warn('[Recorder] No audio input device found; skipping audio capture.');
     }
 
     if (videoDevice) {
-      await this.webcamCapture.start(this.lessonDir, videoDevice.path).catch(e =>
-        console.warn('[Recorder] Webcam capture failed (no camera?):', e?.message ?? e)
-      );
+      try {
+        await this.webcamCapture.start(this.lessonDir, videoDevice.path);
+        (this as any).webcamStarted = true;
+      } catch (e: any) {
+        console.warn('[Recorder] Webcam capture failed (no camera?):', e?.message ?? e);
+      }
     } else {
       console.warn('[Recorder] No video input device found; skipping webcam capture.');
     }
 
     if (browserRegion) {
-      await this.browserCapture.start(this.lessonDir, browserRegion).catch(e =>
-        console.warn('[Recorder] Browser capture failed:', e.message)
-      );
+      try {
+        await this.browserCapture.start(this.lessonDir, browserRegion);
+        (this as any).browserStarted = true;
+      } catch (e: any) {
+        console.warn('[Recorder] Browser capture failed:', e.message);
+      }
     }
 
     // Start VS Code event capture
@@ -143,20 +152,23 @@ export class Recorder {
       }
     } catch { /* starter dir might be empty */ }
 
+    const lessonId = this.session.lessonMeta?.id || path.basename(this.lessonDir) || 'unknown';
+    const lessonTitle = this.session.lessonMeta?.title || lessonId;
+
     await ScrimWriter.write(path.join(this.lessonDir, 'lesson.scrim'), {
       version: 2,
       meta: {
-        id: this.session.lessonMeta.id,
-        title: this.session.lessonMeta.title,
+        id: lessonId,
+        title: lessonTitle,
         duration_ms: duration,
         language_hint: 'javascript',
         runtime_hint: 'node >= 20',
       },
       workspace: { files: starterFiles },
       media: {
-        audio: { file: 'audio.ogg', duration_ms: duration },
-        webcam: { file: 'webcam.mp4', duration_ms: duration },
-        browser_preview: { file: 'browser-preview.mp4', duration_ms: duration },
+        ...((this as any).audioStarted ? { audio: { file: 'audio.ogg', duration_ms: duration } } : {}),
+        ...((this as any).webcamStarted ? { webcam: { file: 'webcam.mp4', duration_ms: duration } } : {}),
+        ...((this as any).browserStarted ? { browser_preview: { file: 'browser-preview.mp4', duration_ms: duration } } : {}),
       },
       events: allEvents,
     });

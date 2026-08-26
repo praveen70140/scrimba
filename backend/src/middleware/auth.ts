@@ -7,6 +7,11 @@ export interface JwtPayload {
   role: string;
 }
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not set');
+}
+
 export const authMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -14,10 +19,9 @@ export const authMiddleware = async (c: Context, next: Next) => {
   }
 
   const token = authHeader.substring(7);
-  const secret = process.env.JWT_SECRET || 'fallback-secret-for-dev';
 
   try {
-    const payload = jwt.verify(token, secret) as JwtPayload;
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     c.set('user', payload);
     await next();
   } catch (e) {

@@ -22,7 +22,7 @@ export interface ForkInfo {
  */
 export class ScrimSession {
   // ── Lesson identity ──────────────────────────────────────────────────────
-  public readonly lessonMeta: LessonMeta;
+  public lessonMeta: LessonMeta;
 
   // ── Playback state ───────────────────────────────────────────────────────
   public playerState: PlayerState = 'IDLE';
@@ -40,8 +40,8 @@ export class ScrimSession {
   public recordingStartMs: number = 0;
   public recordedEvents: ScrimEvent[] = [];
 
-  constructor(meta: LessonMeta) {
-    this.lessonMeta = meta;
+  constructor(meta?: LessonMeta) {
+    this.lessonMeta = meta || { id: '', courseId: '', title: '', durationMs: 0 };
   }
 
   /** Returns elapsed time since recording started */

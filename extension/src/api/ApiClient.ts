@@ -65,20 +65,33 @@ export class ApiClient {
     });
   }
 
+  public async login(email: string, password: string): Promise<{ token: string; user: any }> {
+    return this.request<{ token: string; user: any }>('POST', '/auth/login', { email, password });
+  }
+
+  public async register(email: string, username: string, password: string): Promise<{ token: string; user: any }> {
+    return this.request<{ token: string; user: any }>('POST', '/auth/register', { email, username, password });
+  }
+
   public async getCourses(): Promise<Course[]> {
     return this.request<Course[]>('GET', '/courses');
   }
 
+  public async getCourse(courseId: string): Promise<Course & { lessons: Lesson[] }> {
+    return this.request<Course & { lessons: Lesson[] }>('GET', `/courses/${encodeURIComponent(courseId)}`);
+  }
+
   public async getLessons(courseId: string): Promise<Lesson[]> {
-    return this.request<Lesson[]>('GET', `/courses/${encodeURIComponent(courseId)}/lessons`);
+    const course = await this.getCourse(courseId);
+    return course.lessons;
   }
 
   public async enroll(courseId: string): Promise<void> {
     return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }
 
-  public async getDownloadUrls(lessonId: string): Promise<any> {
-    return this.request<any>('GET', `/lessons/${encodeURIComponent(lessonId)}/download-urls`);
+  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; video_url: string; timecodes_url: string }> {
+    return this.request<{ scrim_url: string; video_url: string; timecodes_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
   }
 
   public async getUploadUrls(lessonId: string): Promise<any> {
