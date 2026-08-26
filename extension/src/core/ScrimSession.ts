@@ -7,6 +7,7 @@ export interface LessonMeta {
   courseId: string;
   title: string;
   durationMs: number;
+  screenStartMs?: number;
 }
 
 export interface ForkInfo {

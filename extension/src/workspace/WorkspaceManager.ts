@@ -69,6 +69,6 @@ export class WorkspaceManager {
    * Opens a physical folder in VS Code
    */
   static async openEditable(uri: vscode.Uri): Promise<void> {
-    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
+    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
   }
 }

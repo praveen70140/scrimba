@@ -2,10 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as util from 'util';
 
-const execPromise = util.promisify(exec);
+const execFilePromise = util.promisify(execFile);
 
 export class ScreenCapture {
   private server: http.Server | undefined;
@@ -13,42 +13,50 @@ export class ScreenCapture {
   private writeStreamPath: string | undefined;
   private isRecordingState: boolean = false;
 
-  public async start(outputDir: string): Promise<void> {
+  public async start(outputDir: string): Promise<number> {
     const outputPath = path.join(outputDir, 'screen.webm');
     this.writeStreamPath = outputPath;
     this.writeStream = fs.createWriteStream(outputPath);
 
-    this.server = http.createServer((req, res) => {
-      // CORS just in case
-      res.setHeader('Access-Control-Allow-Origin', '*');
+    return new Promise<number>((resolve, reject) => {
+      this.server = http.createServer((req, res) => {
+        // CORS just in case
+        res.setHeader('Access-Control-Allow-Origin', '*');
 
-      if (req.method === 'GET' && req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(this.getHtml());
-      } else if (req.method === 'POST' && req.url === '/chunk') {
-        req.on('data', (chunk) => {
-          if (this.writeStream) {
-            this.writeStream.write(chunk);
-          }
-        });
-        req.on('end', () => {
+        if (req.method === 'GET' && req.url === '/') {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(this.getHtml());
+        } else if (req.method === 'POST' && req.url === '/chunk') {
+          req.on('data', (chunk) => {
+            if (this.writeStream) {
+              this.writeStream.write(chunk);
+            }
+          });
+          req.on('end', () => {
+            res.writeHead(200);
+            res.end('ok');
+          });
+        } else if (req.method === 'POST' && req.url === '/stop') {
           res.writeHead(200);
           res.end('ok');
-        });
-      } else if (req.method === 'POST' && req.url === '/stop') {
-        res.writeHead(200);
-        res.end('ok');
-        // Browser explicitly stopped recording
-        vscode.commands.executeCommand('scrimba.stopRecording');
-      }
-    });
+          // Browser explicitly stopped recording
+          vscode.commands.executeCommand('scrimba.stopRecording');
+        } else if (req.method === 'POST' && req.url === '/started') {
+          res.writeHead(200);
+          res.end('ok');
+          // Now resolve the promise because stream actually started!
+          this.isRecordingState = true;
+          resolve(Date.now());
+        }
+      });
 
-    return new Promise((resolve) => {
-      this.server!.listen(48123, '127.0.0.1', () => {
+      this.server.on('error', reject);
+
+      this.server.listen(0, '127.0.0.1', () => {
+        const address = this.server!.address();
+        const port = address && typeof address === 'object' ? address.port : 0;
         // Open the local server in the user's default browser (Chrome/Firefox)
-        vscode.env.openExternal(vscode.Uri.parse('http://localhost:48123/'));
-        this.isRecordingState = true;
-        resolve();
+        vscode.env.openExternal(vscode.Uri.parse(`http://127.0.0.1:${port}/`));
       });
     });
   }
@@ -67,8 +75,11 @@ export class ScreenCapture {
       try {
         if (this.writeStreamPath) {
           const file = this.writeStreamPath;
-          const fixedFile = file.replace('.webm', '_fixed.webm');
-          await execPromise(`ffmpeg -y -i "${file}" -c copy "${fixedFile}"`);
+          const fixedFile = path.join(
+            path.dirname(file),
+            `${path.basename(file, '.webm')}_fixed.webm`
+          );
+          await execFilePromise('ffmpeg', ['-y', '-i', file, '-c', 'copy', fixedFile]);
           fs.renameSync(fixedFile, file);
           console.log('Fixed WebM metadata successfully');
         }
@@ -145,6 +156,7 @@ export class ScreenCapture {
 
               // Capture a chunk every 1 second
               mediaRecorder.start(1000);
+              fetch('/started', { method: 'POST' }).catch(err => console.error(err));
               
               btn.style.display = 'none';
               status.innerText = "Recording... Please minimize this window and return to VS Code.";

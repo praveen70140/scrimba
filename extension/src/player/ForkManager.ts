@@ -18,7 +18,8 @@ export class ForkManager {
     const t = this.session.currentTimeMs;
     
     // Generate fork ID: "fork_1m24s_a3f2"
-    const labelTime = ScrimSession.formatTime(t);
+    const relT = t - (this.session.lessonMeta.screenStartMs || 0);
+    const labelTime = ScrimSession.formatTime(relT);
     const forkId = `fork_${labelTime.replace(':', 'm')}s_${Math.random().toString(36).slice(2, 6)}`;
     
     // Calculate the codebase state exactly at the requested time

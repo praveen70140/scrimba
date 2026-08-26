@@ -123,18 +123,20 @@ export class PlayerPanel {
           const vscode = acquireVsCodeApi();
           const vid = document.getElementById('vid');
           const duration = ${this.session.lessonMeta.durationMs || 100000};
+          const startTimeMs = ${this.session.lessonMeta.screenStartMs || 0};
           
           vid.addEventListener('timeupdate', () => {
-            const timeMs = vid.currentTime * 1000;
-            const p = (timeMs / duration) * 100;
+            const relTimeMs = vid.currentTime * 1000;
+            const absTimeMs = startTimeMs + relTimeMs;
+            const p = (relTimeMs / duration) * 100;
             document.getElementById('progress').style.width = p + '%';
             
-            const totalSec = Math.floor(timeMs / 1000);
+            const totalSec = Math.floor(relTimeMs / 1000);
             const m = Math.floor(totalSec / 60);
             const s = (totalSec % 60).toString().padStart(2, '0');
             document.getElementById('timeDisplay').innerText = m + ':' + s;
 
-            vscode.postMessage({ command: 'timeupdate', timeMs });
+            vscode.postMessage({ command: 'timeupdate', timeMs: absTimeMs });
           });
 
           vid.addEventListener('play', () => vscode.postMessage({ command: 'play' }));
@@ -144,7 +146,7 @@ export class PlayerPanel {
           function pauseVid() { vid.pause(); }
           function fork() {
             vid.pause();
-            vscode.postMessage({ command: 'fork', timeMs: vid.currentTime * 1000 });
+            vscode.postMessage({ command: 'fork', timeMs: startTimeMs + vid.currentTime * 1000 });
           }
 
           function seek(e) {
@@ -157,7 +159,7 @@ export class PlayerPanel {
             const msg = event.data;
             if (msg.command === 'play') playVid();
             if (msg.command === 'pause') pauseVid();
-            if (msg.command === 'seek') vid.currentTime = msg.timeMs / 1000;
+            if (msg.command === 'seek') vid.currentTime = (msg.timeMs - startTimeMs) / 1000;
           });
         </script>
       </body>

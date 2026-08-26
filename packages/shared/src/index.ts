@@ -97,9 +97,9 @@ export const LessonScrimSchema = z.object({
     files: z.record(z.string(), z.string()),
   }),
   media: z.object({
-    audio: z.object({ file: z.string(), duration_ms: z.number().int() }).optional(),
-    webcam: z.object({ file: z.string(), duration_ms: z.number().int() }).optional(),
-    screen: z.object({ file: z.string(), duration_ms: z.number().int() }).optional(),
+    audio: z.object({ file: z.string(), duration_ms: z.number().int(), start_time_ms: z.number().int().optional() }).optional(),
+    webcam: z.object({ file: z.string(), duration_ms: z.number().int(), start_time_ms: z.number().int().optional() }).optional(),
+    screen: z.object({ file: z.string(), duration_ms: z.number().int(), start_time_ms: z.number().int().optional() }).optional(),
   }).optional(),
   events: z.array(ScrimEventSchema),
 });

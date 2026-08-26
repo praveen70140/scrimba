@@ -14,24 +14,31 @@ export class FfmpegConverter {
             cancellable: false
         }, async (progress) => {
             return new Promise((resolve, reject) => {
+                const tmpPath = `${mp4Path}.tmp.mp4`;
+                let stderr = '';
                 const ffmpeg = cp.spawn('ffmpeg', [
                     '-y',
                     '-i', webmPath,
                     '-c:v', 'libx264',
                     '-pix_fmt', 'yuv420p',
                     '-preset', 'fast',
-                    mp4Path
+                    tmpPath
                 ]);
+
+                ffmpeg.stderr?.on('data', d => { stderr += d.toString(); });
 
                 ffmpeg.on('close', (code) => {
                     if (code === 0) {
+                        fs.renameSync(tmpPath, mp4Path);
                         resolve();
                     } else {
-                        reject(new Error(`ffmpeg exited with code ${code}`));
+                        fs.rmSync(tmpPath, { force: true });
+                        reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-500)}`));
                     }
                 });
 
                 ffmpeg.on('error', (err) => {
+                    fs.rmSync(tmpPath, { force: true });
                     reject(err);
                 });
             });

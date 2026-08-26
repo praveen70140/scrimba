@@ -62,6 +62,7 @@ export class Recorder {
       try {
         await this.audioCapture.start(this.lessonDir, audioDevice.path);
         (this as any).audioStarted = true;
+        (this as any).audioStartMs = Date.now();
       } catch (e: any) {
         console.warn('[Recorder] Audio capture failed (no mic?):', e?.message ?? e);
       }
@@ -73,6 +74,7 @@ export class Recorder {
       try {
         await this.webcamCapture.start(this.lessonDir, videoDevice.path);
         (this as any).webcamStarted = true;
+        (this as any).webcamStartMs = Date.now();
       } catch (e: any) {
         console.warn('[Recorder] Webcam capture failed (no camera?):', e?.message ?? e);
       }
@@ -80,16 +82,17 @@ export class Recorder {
       console.warn('[Recorder] No video input device found; skipping webcam capture.');
     }
 
-    try {
-      await this.screenCapture.start(this.lessonDir);
+    // screenCapture will block until browser starts, but we don't await it here so other things start
+    this.screenCapture.start(this.lessonDir).then(screenStartMs => {
       (this as any).screenStarted = true;
-    } catch (e: any) {
+      (this as any).screenStartMs = screenStartMs;
+    }).catch(e => {
       console.warn('[Recorder] Screen capture failed:', e.message);
-    }
+    });
 
     // Start VS Code event capture
     this.session.isRecording = true;
-    this.session.recordingStartMs = Date.now();
+    this.session.recordingStartMs = Date.now(); // absolute time we consider the lesson started
     this.session.recordedEvents = [];
     this.eventCapture.start(context);
 
@@ -150,9 +153,9 @@ export class Recorder {
       },
       workspace: { files: starterFiles },
       media: {
-        ...((this as any).audioStarted ? { audio: { file: 'audio.ogg', duration_ms: duration } } : {}),
-        ...((this as any).webcamStarted ? { webcam: { file: 'webcam.mp4', duration_ms: duration } } : {}),
-        ...((this as any).screenStarted ? { screen: { file: 'screen.webm', duration_ms: duration } } : {}),
+        ...((this as any).audioStarted ? { audio: { file: 'audio.ogg', duration_ms: duration, start_time_ms: (this as any).audioStartMs } } : {}),
+        ...((this as any).webcamStarted ? { webcam: { file: 'webcam.mp4', duration_ms: duration, start_time_ms: (this as any).webcamStartMs } } : {}),
+        ...((this as any).screenStarted ? { screen: { file: 'screen.webm', duration_ms: duration, start_time_ms: (this as any).screenStartMs } } : {}),
       },
       events: allEvents,
     });

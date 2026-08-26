@@ -34,16 +34,23 @@ export class LocalServer {
 
                     if (range) {
                         const parts = range.replace(/bytes=/, "").split("-");
-                        const start = parseInt(parts[0], 10);
-                        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+                        const rawStart = parts[0] === '' ? NaN : parseInt(parts[0], 10);
+                        const rawEnd = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
                         
-                        if(start >= fileSize) {
+                        // Suffix range: bytes=-N returns the last N bytes
+                        const start = Number.isNaN(rawStart)
+                            ? Math.max(0, fileSize - (Number.isNaN(rawEnd) ? fileSize : rawEnd))
+                            : rawStart;
+                        const end = Math.min(Number.isNaN(rawEnd) ? fileSize - 1 : rawEnd, fileSize - 1);
+
+                        if (start >= fileSize || start > end) {
                             res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
                             return res.end();
                         }
 
                         const chunksize = (end - start) + 1;
                         const file = fs.createReadStream(filePath, { start, end });
+                        file.on('error', () => res.destroy());
                         const contentType = pathname.endsWith('.webm') ? 'video/webm' : pathname.endsWith('.mp4') ? 'video/mp4' : 'application/octet-stream';
                         const head = {
                             'Content-Range': `bytes ${start}-${end}/${fileSize}`,

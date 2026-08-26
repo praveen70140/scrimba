@@ -35,7 +35,14 @@ export class Player implements vscode.Disposable {
     
     this.session.events = data.events;
     this.session.initialFiles = data.workspace.files;
-    this.session.currentTimeMs = 0;
+    this.session.lessonMeta = {
+      id: data.meta.id,
+      courseId: '', // Course ID might not be in scrim directly
+      title: data.meta.title,
+      durationMs: data.meta.duration_ms || 0,
+      screenStartMs: data.media?.screen?.start_time_ms
+    };
+    this.session.currentTimeMs = this.session.lessonMeta.screenStartMs || 0;
 
     if (this.stateManager.canTransition('IDLE')) {
       this.stateManager.transition('IDLE');

@@ -19,7 +19,7 @@ export class EventCapture {
   }
 
   private get elapsed(): number {
-    return Date.now() - this.session.recordingStartMs;
+    return Date.now();
   }
 
   private relativePath(uri: vscode.Uri): string {
