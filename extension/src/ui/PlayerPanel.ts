@@ -3,9 +3,12 @@ import { ScrimSession } from '../core/ScrimSession';
 import { Player } from '../player/Player';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as http from 'http';
 
 export class PlayerPanel {
   private panel: vscode.WebviewPanel | undefined;
+  private mediaServer: http.Server | undefined;
+  private mediaPort: number = 0;
 
   constructor(
     private context: vscode.ExtensionContext,
@@ -13,11 +16,14 @@ export class PlayerPanel {
     private player: Player
   ) {}
 
-  public show(lessonDir: string): void {
+  public async show(lessonDir: string): Promise<void> {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.Two);
       return;
     }
+
+    // Start a temporary HTTP server to serve the video, bypassing VS Code's buggy Webview protocols
+    await this.startMediaServer(lessonDir);
 
     this.panel = vscode.window.createWebviewPanel(
       'scrimbaPlayer',
@@ -32,7 +38,7 @@ export class PlayerPanel {
       }
     );
 
-    this.panel.webview.html = this.getHtml(lessonDir);
+    this.panel.webview.html = this.getHtml();
 
     this.panel.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
@@ -40,7 +46,6 @@ export class PlayerPanel {
         case 'pause': this.player.pause(); break;
         case 'seek': this.player.seekTo(message.timeMs); break;
         case 'fork': 
-          // Update the player's time to exactly where the video was paused
           this.session.currentTimeMs = message.timeMs;
           this.player.fork(); 
           break;
@@ -52,11 +57,13 @@ export class PlayerPanel {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
+      this.stopMediaServer();
     });
   }
 
   public dispose(): void {
     this.panel?.dispose();
+    this.stopMediaServer();
   }
 
   public playVideo(): void {
@@ -71,15 +78,70 @@ export class PlayerPanel {
     if (this.panel) this.panel.webview.postMessage({ command: 'seek', timeMs });
   }
 
-  private getHtml(lessonDir: string): string {
-    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.webm')));
+  private startMediaServer(lessonDir: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.mediaServer = http.createServer((req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        if (req.url === '/screen.webm') {
+          const videoPath = path.join(lessonDir, 'screen.webm');
+          if (!fs.existsSync(videoPath)) {
+            res.writeHead(404);
+            return res.end('Not found');
+          }
+          
+          const stat = fs.statSync(videoPath);
+          const fileSize = stat.size;
+          const range = req.headers.range;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunksize = (end - start) + 1;
+            const file = fs.createReadStream(videoPath, {start, end});
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunksize,
+              'Content-Type': 'video/webm',
+            });
+            file.pipe(res);
+          } else {
+            res.writeHead(200, {
+              'Content-Length': fileSize,
+              'Content-Type': 'video/webm',
+            });
+            fs.createReadStream(videoPath).pipe(res);
+          }
+        } else {
+          res.writeHead(404);
+          res.end();
+        }
+      });
+
+      this.mediaServer.listen(0, '127.0.0.1', () => {
+        this.mediaPort = (this.mediaServer?.address() as any).port;
+        resolve();
+      });
+    });
+  }
+
+  private stopMediaServer(): void {
+    if (this.mediaServer) {
+      this.mediaServer.close();
+      this.mediaServer = undefined;
+    }
+  }
+
+  private getHtml(): string {
+    const videoUri = `http://127.0.0.1:${this.mediaPort}/screen.webm`;
 
     return `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.panel!.webview.cspSource} https: http: blob: data: vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src http://127.0.0.1:* https: blob: data: vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
           body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; }
           .video-container { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
@@ -108,9 +170,6 @@ export class PlayerPanel {
           <button onclick="pauseVid()">Pause</button>
           <button onclick="fork()">Fork Here</button>
           <span id="timeDisplay">0:00</span>
-          <div style="font-size: 10px; word-break: break-all; margin-left: 10px; color: gray;">
-            ${videoUri.toString()}
-          </div>
         </div>
 
         <script>
