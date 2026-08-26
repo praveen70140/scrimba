@@ -197,7 +197,20 @@ export async function activate(context: vscode.ExtensionContext) {
       
       try {
         await player.loadLesson(scrimFile);
-        playerPanel.show(lessonDir);
+        
+        // Transcode WebM to MP4 for VS Code compatibility
+        const { FfmpegConverter } = require('./utils/FfmpegConverter');
+        const webmPath = path.join(lessonDir, 'screen.webm');
+        const mp4Path = path.join(lessonDir, 'screen.mp4');
+        if (require('fs').existsSync(webmPath)) {
+            try {
+                await FfmpegConverter.convertToMp4(webmPath, mp4Path);
+            } catch (err) {
+                console.error("FFMPEG transcoding failed:", err);
+            }
+        }
+
+        await playerPanel.show(lessonDir);
       } catch (e: any) {
         vscode.window.showErrorMessage('Failed to load lesson: ' + e.message);
       }

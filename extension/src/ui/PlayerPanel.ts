@@ -2,18 +2,25 @@ import * as vscode from 'vscode';
 import { ScrimSession } from '../core/ScrimSession';
 import { Player } from '../player/Player';
 import * as path from 'path';
+import { LocalServer } from '../player/LocalServer';
 
 export class PlayerPanel {
   private panel: vscode.WebviewPanel | undefined;
+  private server: LocalServer;
 
   constructor(
     private context: vscode.ExtensionContext,
     private session: ScrimSession,
     private player: Player
-  ) {}
+  ) {
+    this.server = new LocalServer();
+  }
 
-  public show(lessonDir: string): void {
+  public async show(lessonDir: string): Promise<void> {
+    const port = await this.server.start(lessonDir);
+
     if (this.panel) {
+      this.panel.webview.html = this.getHtml(port, lessonDir);
       this.panel.reveal(vscode.ViewColumn.Two);
       return;
     }
@@ -32,7 +39,7 @@ export class PlayerPanel {
       }
     );
 
-    this.panel.webview.html = this.getHtml(lessonDir);
+    this.panel.webview.html = this.getHtml(port, lessonDir);
 
     this.panel.webview.onDidReceiveMessage((message) => {
       switch (message.command) {
@@ -51,11 +58,13 @@ export class PlayerPanel {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
+      this.server.stop();
     });
   }
 
   public dispose(): void {
     this.panel?.dispose();
+    this.server.stop();
   }
 
   public playVideo(): void {
@@ -70,10 +79,8 @@ export class PlayerPanel {
     if (this.panel) this.panel.webview.postMessage({ command: 'seek', timeMs });
   }
 
-  private getHtml(lessonDir: string): string {
-    const rawUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.webm')));
-    // MUST add a cache buster, otherwise VS Code aggressively caches the broken/in-progress video file!
-    const videoUri = `${rawUri.toString()}?t=${Date.now()}`;
+  private getHtml(port: number, lessonDir: string): string {
+    const videoUri = `http://127.0.0.1:${port}/screen.mp4?t=${Date.now()}`;
     const cspSource = this.panel!.webview.cspSource;
 
     return `
@@ -81,7 +88,7 @@ export class PlayerPanel {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${cspSource} https: vscode-webview-resource: blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src http://127.0.0.1:${port} ${cspSource} https: vscode-webview-resource: blob: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
           body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; }
           .video-container { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
@@ -110,9 +117,6 @@ export class PlayerPanel {
           <button onclick="pauseVid()">Pause</button>
           <button onclick="fork()">Fork Here</button>
           <span id="timeDisplay">0:00</span>
-          <div style="font-size: 10px; margin-left: 10px; color: gray;">
-            Using asWebviewUri
-          </div>
         </div>
 
         <script>
