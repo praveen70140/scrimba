@@ -89,9 +89,18 @@ export class WorkspaceManager {
   }
 
   /**
-   * Opens a physical folder in VS Code
+   * Opens a folder dynamically in the current window for the teacher, without reloading (if possible)
    */
-  static async openEditable(uri: vscode.Uri): Promise<void> {
+  static async openForTeacher(uri: vscode.Uri, title: string): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders || [];
+    // Replace all existing workspace folders with the new one
+    vscode.workspace.updateWorkspaceFolders(0, folders.length, { uri, name: title });
+  }
+
+  /**
+   * Opens a fork in a new window so the current player session is not destroyed
+   */
+  static async openFork(uri: vscode.Uri): Promise<void> {
     await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
   }
 }

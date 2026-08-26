@@ -129,7 +129,7 @@ export async function activate(context: vscode.ExtensionContext) {
       await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
       
       myCoursesProvider.refresh();
-      await WorkspaceManager.openEditable(starterUri);
+      await WorkspaceManager.openForTeacher(starterUri, title);
       vscode.window.showInformationMessage(`Lesson "${title}" created! Press "Scrim: Start Recording" when ready.`);
     }),
 
@@ -139,7 +139,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
       const lessonDir = vscode.Uri.file(Paths.getStarterDir(item.courseId, item.lessonId));
-      await WorkspaceManager.openEditable(lessonDir);
+      await WorkspaceManager.openForTeacher(lessonDir, item.label || 'Lesson Workspace');
     }),
 
     vscode.commands.registerCommand('scrim.startRecording', async (item?: any) => {

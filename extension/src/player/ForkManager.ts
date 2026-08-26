@@ -46,7 +46,8 @@ export class ForkManager {
    */
   public async openActiveFork(): Promise<void> {
     if (!this.session.activeFork) return;
-    await WorkspaceManager.openEditable(vscode.Uri.file(this.session.activeFork.forkPath));
+    // Open the folder automatically in a new window so playback doesn't die
+    await WorkspaceManager.openFork(vscode.Uri.file(this.session.activeFork.forkPath));
   }
 
   /**
