@@ -5,7 +5,7 @@ import { ScrimEvent } from '@scrimba-clone/shared';
 import { ScrimSession } from '../core/ScrimSession';
 import { AudioCapture } from './AudioCapture';
 import { WebcamCapture } from './WebcamCapture';
-import { BrowserCapture, ScreenRegion } from './BrowserCapture';
+import { ScreenCapture } from './ScreenCapture';
 import { EventCapture } from './EventCapture';
 import { ScrimWriter } from './ScrimWriter';
 import { FfmpegWrapper } from '../utils/FfmpegWrapper';
@@ -19,7 +19,7 @@ import { FfmpegWrapper } from '../utils/FfmpegWrapper';
 export class Recorder {
   private audioCapture = new AudioCapture();
   private webcamCapture = new WebcamCapture();
-  private browserCapture = new BrowserCapture();
+  private screenCapture = new ScreenCapture();
   private eventCapture: EventCapture;
   private session: ScrimSession;
   private lessonDir: string;
@@ -35,7 +35,7 @@ export class Recorder {
 
   private initialFiles: Record<string, string> = {};
 
-  public async start(context: vscode.ExtensionContext, browserRegion?: ScreenRegion): Promise<void> {
+  public async start(context: vscode.ExtensionContext): Promise<void> {
     // Snapshot starter files in memory at the exact moment recording starts
     this.initialFiles = {};
     const wsFolder = vscode.workspace.workspaceFolders?.[0];
@@ -80,13 +80,11 @@ export class Recorder {
       console.warn('[Recorder] No video input device found; skipping webcam capture.');
     }
 
-    if (browserRegion) {
-      try {
-        await this.browserCapture.start(this.lessonDir, browserRegion);
-        (this as any).browserStarted = true;
-      } catch (e: any) {
-        console.warn('[Recorder] Browser capture failed:', e.message);
-      }
+    try {
+      await this.screenCapture.start(this.lessonDir);
+      (this as any).screenStarted = true;
+    } catch (e: any) {
+      console.warn('[Recorder] Screen capture failed:', e.message);
     }
 
     // Start VS Code event capture
@@ -127,7 +125,7 @@ export class Recorder {
     await Promise.all([
       this.audioCapture.stop().catch(e => console.warn('[Recorder] Audio stop error:', e.message)),
       this.webcamCapture.stop().catch(e => console.warn('[Recorder] Webcam stop error:', e.message)),
-      this.browserCapture.stop().catch(e => console.warn('[Recorder] Browser stop error:', e.message)),
+      this.screenCapture.stop().catch(e => console.warn('[Recorder] Screen stop error:', e.message)),
       this.eventCapture.stop(),
     ]);
 
@@ -154,7 +152,7 @@ export class Recorder {
       media: {
         ...((this as any).audioStarted ? { audio: { file: 'audio.ogg', duration_ms: duration } } : {}),
         ...((this as any).webcamStarted ? { webcam: { file: 'webcam.mp4', duration_ms: duration } } : {}),
-        ...((this as any).browserStarted ? { browser_preview: { file: 'browser-preview.mp4', duration_ms: duration } } : {}),
+        ...((this as any).screenStarted ? { screen: { file: 'screen.mp4', duration_ms: duration } } : {}),
       },
       events: allEvents,
     });

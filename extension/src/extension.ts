@@ -143,7 +143,7 @@ export async function activate(context: vscode.ExtensionContext) {
       recorder = new Recorder(session, lessonDir);
       
       // Start recording
-      await recorder.start(context, { x: 0, y: 0, width: 800, height: 600 }); // Mock region for now
+      await recorder.start(context);
       browserPanel.showLive('http://localhost:3000');
     }),
 

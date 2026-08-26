@@ -72,7 +72,7 @@ export class PlayerPanel {
   }
 
   private getHtml(lessonDir: string): string {
-    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'browser-preview.mp4')));
+    const videoUri = this.panel!.webview.asWebviewUri(vscode.Uri.file(path.join(lessonDir, 'screen.mp4')));
 
     return `
       <!DOCTYPE html>

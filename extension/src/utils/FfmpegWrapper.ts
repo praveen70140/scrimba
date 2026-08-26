@@ -72,7 +72,7 @@ export class FfmpegWrapper {
     }
     this.outputPath = outputPath;
     this.process = spawn('ffmpeg', ['-y', ...args], {
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe']
     });
 
     this.process.on('error', (err) => {
