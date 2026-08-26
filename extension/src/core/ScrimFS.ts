@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
 export class ScrimFS implements vscode.FileSystemProvider {
-  // Map of filename -> string content
   private files: Map<string, string> = new Map();
+  private directories: Set<string> = new Set();
 
   private _emitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
   readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
@@ -15,7 +15,11 @@ export class ScrimFS implements vscode.FileSystemProvider {
     for (const path of this.files.keys()) {
       events.push({ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${path}`) });
     }
+    for (const path of this.directories) {
+      events.push({ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${path}`) });
+    }
     this.files.clear();
+    this.directories.clear();
     if (events.length > 0) {
       this._emitter.fire(events);
     }
@@ -26,6 +30,7 @@ export class ScrimFS implements vscode.FileSystemProvider {
    */
   mount(files: Record<string, string>) {
     const oldFiles = new Set(this.files.keys());
+    const oldDirs = new Set(this.directories);
     const events: vscode.FileChangeEvent[] = [];
     
     // Process new files
@@ -47,6 +52,10 @@ export class ScrimFS implements vscode.FileSystemProvider {
       this.files.delete(path);
       events.push({ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${path}`) });
     }
+    for (const path of oldDirs) {
+      this.directories.delete(path);
+      events.push({ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${path}`) });
+    }
 
     if (events.length > 0) {
       this._emitter.fire(events);
@@ -62,6 +71,74 @@ export class ScrimFS implements vscode.FileSystemProvider {
     }
     this.files.set(path, newContent);
     this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri: vscode.Uri.parse(`scrim:///${path}`) }]);
+  }
+
+  createFile(path: string, isDir: boolean = false) {
+    if (isDir) {
+      this.directories.add(path);
+      this._emitter.fire([{ type: vscode.FileChangeType.Created, uri: vscode.Uri.parse(`scrim:///${path}`) }]);
+      return;
+    }
+    this.files.set(path, '');
+    this._emitter.fire([{ type: vscode.FileChangeType.Created, uri: vscode.Uri.parse(`scrim:///${path}`) }]);
+  }
+
+  deleteFile(path: string) {
+    // delete file or directory
+    const toDeleteFiles = [];
+    for (const key of this.files.keys()) {
+      if (key === path || key.startsWith(path + '/')) {
+        toDeleteFiles.push(key);
+      }
+    }
+    for (const key of toDeleteFiles) {
+      this.files.delete(key);
+      this._emitter.fire([{ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${key}`) }]);
+    }
+
+    const toDeleteDirs = [];
+    for (const key of this.directories) {
+      if (key === path || key.startsWith(path + '/')) {
+        toDeleteDirs.push(key);
+      }
+    }
+    for (const key of toDeleteDirs) {
+      this.directories.delete(key);
+      this._emitter.fire([{ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${key}`) }]);
+    }
+  }
+
+  renameFile(oldPath: string, newPath: string) {
+    const toRenameFiles = [];
+    for (const key of this.files.keys()) {
+      if (key === oldPath || key.startsWith(oldPath + '/')) {
+        toRenameFiles.push(key);
+      }
+    }
+    for (const key of toRenameFiles) {
+      const content = this.files.get(key)!;
+      this.files.delete(key);
+      this._emitter.fire([{ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${key}`) }]);
+      
+      const updatedKey = key === oldPath ? newPath : newPath + key.substring(oldPath.length);
+      this.files.set(updatedKey, content);
+      this._emitter.fire([{ type: vscode.FileChangeType.Created, uri: vscode.Uri.parse(`scrim:///${updatedKey}`) }]);
+    }
+
+    const toRenameDirs = [];
+    for (const key of this.directories) {
+      if (key === oldPath || key.startsWith(oldPath + '/')) {
+        toRenameDirs.push(key);
+      }
+    }
+    for (const key of toRenameDirs) {
+      this.directories.delete(key);
+      this._emitter.fire([{ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${key}`) }]);
+      
+      const updatedKey = key === oldPath ? newPath : newPath + key.substring(oldPath.length);
+      this.directories.add(updatedKey);
+      this._emitter.fire([{ type: vscode.FileChangeType.Created, uri: vscode.Uri.parse(`scrim:///${updatedKey}`) }]);
+    }
   }
 
   /**
@@ -95,8 +172,17 @@ export class ScrimFS implements vscode.FileSystemProvider {
       };
     }
 
-    // Check if it's a directory
+    if (this.directories.has(p)) {
+      return { type: vscode.FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0, permissions: vscode.FilePermission.Readonly };
+    }
+
+    // Check if it's a parent directory of any file or directory
     for (const key of this.files.keys()) {
+      if (key.startsWith(p + '/')) {
+        return { type: vscode.FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0, permissions: vscode.FilePermission.Readonly };
+      }
+    }
+    for (const key of this.directories) {
       if (key.startsWith(p + '/')) {
         return { type: vscode.FileType.Directory, ctime: Date.now(), mtime: Date.now(), size: 0, permissions: vscode.FilePermission.Readonly };
       }
@@ -126,7 +212,20 @@ export class ScrimFS implements vscode.FileSystemProvider {
       }
     }
 
-    if (p !== '' && entries.size === 0) {
+    for (const key of this.directories) {
+      if (key.startsWith(prefix)) {
+        const rest = key.substring(prefix.length);
+        const slashIdx = rest.indexOf('/');
+        if (slashIdx === -1) {
+          entries.set(rest, vscode.FileType.Directory);
+        } else {
+          const dirName = rest.substring(0, slashIdx);
+          entries.set(dirName, vscode.FileType.Directory);
+        }
+      }
+    }
+
+    if (p !== '' && entries.size === 0 && !this.directories.has(p)) {
       throw vscode.FileSystemError.FileNotFound(uri);
     }
 

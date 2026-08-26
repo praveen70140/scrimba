@@ -32,6 +32,15 @@ export class EditorApplicator {
       case 'scroll':
         this.handleScroll(event.path, event.top_line);
         break;
+      case 'file_create':
+        this.scrimFs.createFile(this.cleanPath(event.path), event.is_dir);
+        break;
+      case 'file_delete':
+        this.scrimFs.deleteFile(this.cleanPath(event.path));
+        break;
+      case 'file_rename':
+        this.scrimFs.renameFile(this.cleanPath(event.old_path), this.cleanPath(event.new_path));
+        break;
     }
   }
 

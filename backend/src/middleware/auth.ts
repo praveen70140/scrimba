@@ -23,8 +23,9 @@ export const authMiddleware = async (c: Context, next: Next) => {
   try {
     const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
     c.set('user', payload);
-    await next();
   } catch (e) {
     return c.json({ error: 'Invalid token' }, 401);
   }
+  
+  await next();
 };

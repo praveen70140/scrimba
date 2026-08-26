@@ -25,7 +25,9 @@ export class EventCapture {
   private relativePath(uri: vscode.Uri): string {
     const rel = path.relative(this.workspaceRoot, uri.fsPath);
     // Security: ignore files outside workspace root
-    if (rel.startsWith('..')) { return ''; }
+    if (path.isAbsolute(rel) || rel === '..' || rel.startsWith(`..${path.sep}`)) {
+      return '';
+    }
     return rel;
   }
 
@@ -103,6 +105,41 @@ export class EventCapture {
         const filePath = this.relativePath(editor.document.uri);
         if (!filePath) { return; }
         this.session.recordedEvents.push({ t: this.elapsed, type: 'file_focus', path: filePath });
+      })
+    );
+
+    // ── File create / delete / rename ─────────────────────────────────────────
+    this.disposables.push(
+      vscode.workspace.onDidCreateFiles(async (e) => {
+        for (const file of e.files) {
+          const filePath = this.relativePath(file);
+          if (filePath) {
+            try {
+              const stat = await vscode.workspace.fs.stat(file);
+              const isDir = stat.type === vscode.FileType.Directory;
+              this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: isDir });
+            } catch {
+              this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: false });
+            }
+          }
+        }
+      }),
+      vscode.workspace.onDidDeleteFiles((e) => {
+        for (const file of e.files) {
+          const filePath = this.relativePath(file);
+          if (filePath) {
+            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_delete', path: filePath });
+          }
+        }
+      }),
+      vscode.workspace.onDidRenameFiles((e) => {
+        for (const file of e.files) {
+          const oldPath = this.relativePath(file.oldUri);
+          const newPath = this.relativePath(file.newUri);
+          if (oldPath && newPath) {
+            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_rename', old_path: oldPath, new_path: newPath });
+          }
+        }
       })
     );
   }
