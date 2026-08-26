@@ -130,6 +130,12 @@ export async function activate(context: vscode.ExtensionContext) {
       
       myCoursesProvider.refresh();
       await WorkspaceManager.openForTeacher(starterUri, title);
+      
+      try {
+        const doc = await vscode.workspace.openTextDocument(starterFile);
+        await vscode.window.showTextDocument(doc);
+      } catch (e) {}
+
       vscode.window.showInformationMessage(`Lesson "${title}" created! Press "Scrim: Start Recording" when ready.`);
     }),
 

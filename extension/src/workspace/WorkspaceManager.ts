@@ -16,7 +16,8 @@ export class WorkspaceManager {
 
   static async getCourseTitle(courseId: string): Promise<string> {
     try {
-      const manifestUri = vscode.Uri.file(Paths.getCourseDir(courseId) + '/course.json');
+      const courseUri = vscode.Uri.file(Paths.getCourseDir(courseId));
+      const manifestUri = vscode.Uri.joinPath(courseUri, 'course.json');
       const content = await vscode.workspace.fs.readFile(manifestUri);
       const manifest = JSON.parse(Buffer.from(content).toString('utf-8'));
       return manifest.title || courseId;
@@ -28,7 +29,8 @@ export class WorkspaceManager {
   static async getLessonTitle(courseId: string, lessonId: string): Promise<string> {
     try {
       // If it has a lesson.scrim, read its metadata
-      const scrimUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId) + '/lesson.scrim');
+      const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
+      const scrimUri = vscode.Uri.joinPath(lessonUri, 'lesson.scrim');
       const { ScrimReader } = require('../core/ScrimReader');
       const data = await ScrimReader.read(scrimUri.fsPath);
       return data.meta.title || lessonId;
@@ -93,8 +95,22 @@ export class WorkspaceManager {
    */
   static async openForTeacher(uri: vscode.Uri, title: string): Promise<void> {
     const folders = vscode.workspace.workspaceFolders || [];
-    // Replace all existing workspace folders with the new one
-    vscode.workspace.updateWorkspaceFolders(0, folders.length, { uri, name: title });
+    
+    // Check if it's already open
+    if (folders.some(f => f.uri.fsPath === uri.fsPath)) {
+      return;
+    }
+
+    // Find any existing lesson folder in the workspace to replace, 
+    // keeping the user's original folders intact to prevent window reloads.
+    const targetPath = require('path').join('.scrimba', 'courses');
+    const existingIndex = folders.findIndex(f => f.uri.fsPath.includes(targetPath));
+    
+    if (existingIndex >= 0) {
+      vscode.workspace.updateWorkspaceFolders(existingIndex, 1, { uri, name: title });
+    } else {
+      vscode.workspace.updateWorkspaceFolders(folders.length, 0, { uri, name: title });
+    }
   }
 
   /**
