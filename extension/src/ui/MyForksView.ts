@@ -45,7 +45,9 @@ export class MyForksViewProvider implements vscode.TreeDataProvider<vscode.TreeI
           let label = forkName;
           try {
             const meta = JSON.parse(await fs.readFile(path.join(forkPath, '.fork-meta.json'), 'utf-8'));
-            label = meta.label || forkName;
+            if (typeof meta?.label === 'string' && meta.label.trim()) {
+              label = meta.label;
+            }
           } catch { /* fall back to folder name */ }
 
           const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);

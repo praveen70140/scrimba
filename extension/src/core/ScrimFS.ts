@@ -8,6 +8,20 @@ export class ScrimFS implements vscode.FileSystemProvider {
   readonly onDidChangeFile: vscode.Event<vscode.FileChangeEvent[]> = this._emitter.event;
 
   /**
+   * Clears the virtual file system
+   */
+  clear(): void {
+    const events: vscode.FileChangeEvent[] = [];
+    for (const path of this.files.keys()) {
+      events.push({ type: vscode.FileChangeType.Deleted, uri: vscode.Uri.parse(`scrim:///${path}`) });
+    }
+    this.files.clear();
+    if (events.length > 0) {
+      this._emitter.fire(events);
+    }
+  }
+
+  /**
    * Mounts a new set of files into the virtual file system
    */
   mount(files: Record<string, string>) {

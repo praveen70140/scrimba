@@ -77,6 +77,14 @@ export class FfmpegWrapper {
 
     this.process.on('error', (err) => {
       console.error(`[FfmpegWrapper] process error for ${outputPath}:`, err);
+      this.process = null;
+    });
+
+    this.process.on('close', (code) => {
+      if (code !== 0 && code !== null) {
+        console.error(`[FfmpegWrapper] ffmpeg exited with code ${code} for ${outputPath}`);
+      }
+      this.process = null;
     });
 
     this.process.stderr?.on('data', (data: Buffer) => {
@@ -91,25 +99,28 @@ export class FfmpegWrapper {
    */
   public stop(): Promise<void> {
     return new Promise((resolve) => {
-      if (!this.process) {
+      const proc = this.process;
+      if (!proc) {
         resolve();
         return;
       }
-      this.process.on('close', () => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         this.process = null;
         resolve();
-      });
+      };
+      proc.once('close', finish);
       // Send 'q' to ffmpeg stdin triggers graceful finalization
-      this.process.stdin?.write('q');
-      this.process.stdin?.end();
+      proc.stdin?.write('q');
+      proc.stdin?.end();
 
       // Force kill after 5s if it doesn't exit gracefully
-      setTimeout(() => {
-        if (this.process) {
-          this.process.kill('SIGKILL');
-          this.process = null;
-          resolve();
-        }
+      const timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        finish();
       }, 5000);
     });
   }

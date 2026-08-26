@@ -17,13 +17,17 @@ export class BrowserCapture {
 
   public async start(outputDir: string, region: ScreenRegion): Promise<void> {
     const outputPath = path.join(outputDir, 'browser-preview.mp4');
-    const { x, y, width, height } = region;
+    const { x, y } = region;
+    // libx264 + yuv420p requires even dimensions
+    const width = Math.max(2, Math.floor(region.width / 2) * 2);
+    const height = Math.max(2, Math.floor(region.height / 2) * 2);
+    const display = process.env.DISPLAY || ':0.0';
 
     this.ffmpeg.start([
       '-f', 'x11grab',
       '-framerate', '30',
       '-video_size', `${width}x${height}`,
-      '-i', `:0.0+${x},${y}`,
+      '-i', `${display}+${x},${y}`,
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
       '-pix_fmt', 'yuv420p',
