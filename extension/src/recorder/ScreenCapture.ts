@@ -51,6 +51,9 @@ export class ScreenCapture {
   public async stop(): Promise<void> {
     this.isRecordingState = false;
     
+    // Allow pending queued chunks to finish uploading
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
     if (this.writeStream) {
       this.writeStream.end();
       this.writeStream = undefined;
@@ -103,6 +106,7 @@ export class ScreenCapture {
           const btn = document.getElementById('startBtn');
           const status = document.getElementById('status');
           let mediaRecorder;
+          let uploadQueue = Promise.resolve();
 
           btn.addEventListener('click', async () => {
             try {
@@ -113,23 +117,23 @@ export class ScreenCapture {
 
               mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
 
-              mediaRecorder.ondataavailable = async (e) => {
+              mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
-                  // Send raw binary blob to local server
-                  try {
-                    await fetch('/chunk', {
+                  uploadQueue = uploadQueue.then(() => 
+                    fetch('/chunk', {
                       method: 'POST',
                       body: e.data
-                    });
-                  } catch (err) {
-                    console.error('Failed to send chunk:', err);
-                  }
+                    })
+                  ).catch(err => console.error('Failed to send chunk:', err));
                 }
               };
 
               mediaRecorder.onstop = () => {
-                status.innerText = "Recording stopped. You can close this tab.";
-                btn.style.display = 'block';
+                // Ensure all uploads finish before we consider it stopped
+                uploadQueue.then(() => {
+                  status.innerText = "Recording stopped. You can close this tab.";
+                  btn.style.display = 'block';
+                });
                 stream.getTracks().forEach(t => t.stop());
               };
 
