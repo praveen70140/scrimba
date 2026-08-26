@@ -33,6 +33,7 @@ export class StateManager {
 
   /**
    * Attempts a state transition. Throws if the transition is not valid.
+   * Same-state is a no-op and does not fire an event.
    */
   public transition(to: PlayerState): void {
     const from = this.session.playerState;
@@ -50,8 +51,10 @@ export class StateManager {
 
   /**
    * Checks if a given transition is valid without performing it.
+   * Returns true for same-state (mirrors transition() no-op behaviour).
    */
   public canTransition(to: PlayerState): boolean {
+    if (this.session.playerState === to) return true; // same-state no-op is valid
     const allowed = StateManager.VALID_TRANSITIONS[this.session.playerState];
     return allowed.includes(to);
   }

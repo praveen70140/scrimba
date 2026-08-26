@@ -92,6 +92,19 @@ export function activate(context: vscode.ExtensionContext) {
 
     // ── Start Recording ──────────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.startRecording', async () => {
+      // Guard: stop any existing session before starting a new one
+      if (eventRecorder) {
+        const yes = await vscode.window.showWarningMessage(
+          'A recording session is already active. Stop it and start a new one?',
+          'Yes', 'No'
+        );
+        if (yes !== 'Yes') { return; }
+        eventRecorder.stop();
+        eventRecorder = undefined;
+        activeTerminalProxy?.dispose();
+        activeTerminalProxy = undefined;
+      }
+
       const wsFolder = vscode.workspace.workspaceFolders?.[0];
       if (!wsFolder) {
         vscode.window.showErrorMessage('Open a lesson workspace first before recording.');
@@ -115,9 +128,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // ── Stop Recording ───────────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.stopRecording', async () => {
+      if (!eventRecorder) {
+        vscode.window.showWarningMessage('No recording session is active.');
+        return;
+      }
       await mediaRecorder.stopRecording();
 
-      const events = eventRecorder?.stop() ?? [];
+      const events = eventRecorder.stop();
       eventRecorder = undefined;
 
       // Dispose terminal proxy so repeated sessions don't stack up
@@ -187,11 +204,15 @@ export function activate(context: vscode.ExtensionContext) {
       const lessonId = path.basename(wsFolder.uri.fsPath);
       const forkId = 'fork_' + ScrimSession.formatTime(Date.now() % 3600000).replace(':', 'm') + 's_' + Math.random().toString(36).slice(2, 6);
 
-      // Collect current files from the workspace
+      // Use RelativePattern to restrict search strictly to this workspace folder
+      // (prevents picking up files from other roots in a multi-root workspace)
+      const pattern = new vscode.RelativePattern(wsFolder, '**/*');
       const files: Record<string, string> = {};
-      const allFiles = await vscode.workspace.findFiles('**/*', '**/node_modules/**');
+      const allFiles = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
       for (const f of allFiles) {
         const rel = path.relative(wsFolder.uri.fsPath, f.fsPath);
+        // Extra guard: skip anything that escaped the folder (should not happen with RelativePattern)
+        if (rel.startsWith('..')) { continue; }
         const bytes = await vscode.workspace.fs.readFile(f);
         files[rel] = Buffer.from(bytes).toString('utf-8');
       }
@@ -200,6 +221,7 @@ export function activate(context: vscode.ExtensionContext) {
       myForksProvider.refresh();
       await WorkspaceManager.openEditable(forkUri);
     }),
+
 
     // ── Resume ────────────────────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.resume', async () => {
