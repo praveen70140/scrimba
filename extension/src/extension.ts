@@ -198,7 +198,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('No lesson workspace open.');
         return;
       }
-      const lessonDir = workspaceFolders[0].uri.fsPath;
+      let lessonDir = workspaceFolders[0].uri.fsPath;
+      if (path.basename(lessonDir) === 'starter') {
+        lessonDir = path.dirname(lessonDir);
+      }
       const scrimFile = path.join(lessonDir, 'lesson.scrim');
       
       try {

@@ -45,6 +45,7 @@ export class Recorder {
         const rel = path.relative(wsFolder.uri.fsPath, f.fsPath);
         if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) { continue; }
         const dest = path.join(starterDir, rel);
+        if (f.fsPath === dest) continue;
         await fs.mkdir(path.dirname(dest), { recursive: true });
         await fs.copyFile(f.fsPath, dest);
       }
