@@ -1,21 +1,58 @@
 import { Hono } from 'hono';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
+import { db } from '../db';
+import { JwtPayload } from '../middleware/auth';
 
 const authRouter = new Hono();
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET must be configured');
+}
+
 authRouter.post('/register', async (c) => {
-  return c.json({ message: 'Register endpoint' });
+  const { email, username, password } = await c.req.json();
+  
+  if (!email || !username || !password) {
+    return c.json({ error: 'Missing required fields' }, 400);
+  }
+
+  const existing = await db.user.findFirst({
+    where: { OR: [{ email }, { username }] }
+  });
+
+  if (existing) {
+    return c.json({ error: 'User already exists' }, 400);
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  const user = await db.user.create({
+    data: { email, username, password_hash: hash }
+  });
+
+  const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+  return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });
 
 authRouter.post('/login', async (c) => {
-  return c.json({ token: 'mock-token', refresh: 'mock-refresh' });
-});
+  const { email, password } = await c.req.json();
+  
+  if (!email || !password) {
+    return c.json({ error: 'Missing required fields' }, 400);
+  }
 
-authRouter.post('/refresh', async (c) => {
-  return c.json({ token: 'mock-new-token' });
-});
+  const user = await db.user.findUnique({ where: { email } });
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    return c.json({ error: 'Invalid credentials' }, 401);
+  }
 
-authRouter.delete('/logout', async (c) => {
-  return c.json({ message: 'Logout successful' });
+  const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+  return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });
 
 export { authRouter };
