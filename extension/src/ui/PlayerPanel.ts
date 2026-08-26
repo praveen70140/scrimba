@@ -79,7 +79,7 @@ export class PlayerPanel {
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.panel!.webview.cspSource} https: http: blob: data: vscode-webview-resource:; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
         <style>
           body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 10px; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; }
           .video-container { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; }
