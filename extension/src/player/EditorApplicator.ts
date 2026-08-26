@@ -6,7 +6,12 @@ export class EditorApplicator {
   constructor(private scrimFs: ScrimFS) {}
 
   private getUri(path: string): vscode.Uri {
-    return vscode.Uri.from({ scheme: 'scrim', path: `/${path}` });
+    const cleanPath = path.startsWith('starter/') ? path.substring(8) : path;
+    return vscode.Uri.from({ scheme: 'scrim', path: `/${cleanPath}` });
+  }
+
+  private cleanPath(path: string): string {
+    return path.startsWith('starter/') ? path.substring(8) : path;
   }
 
   public async applyEvent(event: ScrimEvent) {
@@ -39,6 +44,7 @@ export class EditorApplicator {
   }
 
   private handleEdit(path: string, range: [[number, number], [number, number]], newText: string) {
+    path = this.cleanPath(path);
     const fileContent = this.scrimFs.getAllFiles()[path];
     if (fileContent === undefined) return;
 
@@ -58,7 +64,7 @@ export class EditorApplicator {
   }
 
   private handleSelection(event: Extract<ScrimEvent, { type: 'cursor' | 'selection' }>) {
-    const uri = this.getUri(event.path);
+    const uri = this.getUri(this.cleanPath(event.path));
     const editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === uri.toString());
     if (editor) {
       if (event.type === 'cursor') {

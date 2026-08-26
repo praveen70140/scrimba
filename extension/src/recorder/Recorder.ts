@@ -29,7 +29,7 @@ export class Recorder {
   constructor(session: ScrimSession, lessonDir: string) {
     this.session = session;
     this.lessonDir = lessonDir;
-    this.eventCapture = new EventCapture(session, lessonDir);
+    this.eventCapture = new EventCapture(session, path.join(lessonDir, 'starter'));
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   }
 
