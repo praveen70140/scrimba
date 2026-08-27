@@ -366,7 +366,7 @@ export class PlayerPanel {
 
           // Keyboard shortcuts
           window.addEventListener('keydown', (e) => {
-            const tag = (e.target && (e.target as any).tagName) || '';
+            const tag = (e.target && e.target.tagName) || '';
             if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
             if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
             else if (e.code === 'ArrowLeft') seekToTime(vid.currentTime*1000 - 5000);
