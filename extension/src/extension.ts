@@ -355,10 +355,11 @@ export async function activate(context: vscode.ExtensionContext) {
         if (activeEditor) {
           const fsPath = activeEditor.document.uri.fsPath;
           if (fsPath.includes(path.join('.scrimba', 'courses'))) {
-            // Traverse up to find the lesson-xxx directory
+            // Traverse up to find the lesson directory (which contains lesson.json)
+            const fs = require('fs') as typeof import('fs');
             let current = path.dirname(fsPath);
-            while (current.includes('lesson-')) {
-              if (path.basename(current).startsWith('lesson-')) {
+            while (current !== path.dirname(current)) {
+              if (fs.existsSync(path.join(current, 'lesson.json'))) {
                 lessonDir = current;
                 break;
               }
@@ -452,9 +453,10 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
           if (activeEditor) {
             const fsPath = activeEditor.document.uri.fsPath;
             if (fsPath.includes(path.join('.scrimba', 'courses'))) {
+              const fs = require('fs') as typeof import('fs');
               let current = path.dirname(fsPath);
-              while (current.includes('lesson-')) {
-                if (path.basename(current).startsWith('lesson-')) {
+              while (current !== path.dirname(current)) {
+                if (fs.existsSync(path.join(current, 'lesson.json'))) {
                   lessonDir = current;
                   break;
                 }
@@ -502,9 +504,10 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor) {
           const fsPath = activeEditor.document.uri.fsPath;
+          const fs = require('fs') as typeof import('fs');
           let current = path.dirname(fsPath);
-          while (current.includes('lesson-')) {
-            if (path.basename(current).startsWith('lesson-')) {
+          while (current !== path.dirname(current)) {
+            if (fs.existsSync(path.join(current, 'lesson.json'))) {
               lessonDir = current;
               lessonId = path.basename(current);
               break;

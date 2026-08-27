@@ -72,7 +72,7 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
         const courseDir = path.join(Paths.getBaseDir(), 'courses', element.courseId);
         const dirs = await fs.readdir(courseDir, { withFileTypes: true });
         for (const d of dirs) {
-          if (d.isDirectory() && d.name.startsWith('lesson-')) {
+          if (d.isDirectory()) {
             const title = await WorkspaceManager.getLessonTitle(element.courseId, d.name);
             items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.Collapsed));
           }
