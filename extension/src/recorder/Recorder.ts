@@ -160,8 +160,8 @@ export class Recorder {
         courseId: courseId,
         title: lessonTitle,
         duration_ms: duration,
-        language_hint: 'javascript',
-        runtime_hint: 'node >= 20',
+        language_hint: (this.session as any).lessonMeta?.languageHint || 'javascript',
+        runtime_hint: (this.session as any).lessonMeta?.runtimeHint || 'node >= 20',
       },
       workspace: { files: starterFiles },
       media: {

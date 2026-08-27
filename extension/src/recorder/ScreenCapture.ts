@@ -85,6 +85,7 @@ export class ScreenCapture {
         }
       } catch (err: any) {
         console.warn('Failed to fix WebM metadata:', err.message);
+        vscode.window.showErrorMessage('Failed to finalize screen recording. The video file may be corrupted.');
       }
     }
     

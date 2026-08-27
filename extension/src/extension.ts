@@ -158,6 +158,9 @@ export async function activate(context: vscode.ExtensionContext) {
       const title = await vscode.window.showInputBox({ prompt: 'Lesson title' });
       if (!title) { return; }
 
+      const languageHint = await vscode.window.showInputBox({ prompt: 'Language hint (e.g., javascript, python, rust)', value: 'javascript' }) || 'javascript';
+      const runtimeHint = await vscode.window.showInputBox({ prompt: 'Runtime hint (e.g., node >= 20, python 3.12)', value: 'node >= 20' }) || 'node >= 20';
+
       const lessonId = 'lesson-' + Date.now();
       session.lessonMeta = { id: lessonId, title, courseId, durationMs: 0 };
       
@@ -165,7 +168,7 @@ export async function activate(context: vscode.ExtensionContext) {
       
       const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
       const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
-      await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title }, null, 2), 'utf-8'));
+      await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title, languageHint, runtimeHint }, null, 2), 'utf-8'));
 
       const starterFile = vscode.Uri.joinPath(starterUri, 'index.js');
       await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
@@ -246,6 +249,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
       if (!lessonDir) {
         vscode.window.showErrorMessage('Open a lesson workspace or file first before recording, or start it from the My Courses view.');
+        return;
+      }
+      
+      const fsNode = require('fs/promises');
+      try {
+        const metaStr = await fsNode.readFile(path.join(lessonDir, 'lesson.json'), 'utf8');
+        session.lessonMeta = JSON.parse(metaStr);
+      } catch (e) {
+        console.warn('Failed to load lesson.json', e);
+      }
+      
+      const fs = require('fs');
+      if (!fs.existsSync(path.join(lessonDir, 'starter'))) {
+        vscode.window.showErrorMessage('The selected lesson directory is invalid (missing "starter" folder).');
         return;
       }
       
