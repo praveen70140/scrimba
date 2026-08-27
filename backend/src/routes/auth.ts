@@ -6,10 +6,11 @@ import { JwtPayload } from '../middleware/auth';
 
 const authRouter = new Hono();
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET must be configured');
-}
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET must be configured");
+  return secret;
+};
 
 authRouter.post('/register', async (c) => {
   const { email, username, password } = await c.req.json();
@@ -32,7 +33,7 @@ authRouter.post('/register', async (c) => {
   });
 
   const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 
   return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });
@@ -50,7 +51,7 @@ authRouter.post('/login', async (c) => {
   }
 
   const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 
   return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });

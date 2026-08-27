@@ -52,3 +52,45 @@ coursesRouter.get('/:id', async (c) => {
 });
 
 export { coursesRouter };
+
+// Create a new lesson in a course
+coursesRouter.post('/:id/lessons', authMiddleware, async (c) => {
+  const courseId = c.req.param('id');
+  const user = c.get('user');
+  const { title } = await c.req.json();
+
+  if (!title) {
+    return c.json({ error: 'Title is required' }, 400);
+  }
+
+  const course = await db.course.findUnique({ where: { id: courseId } });
+  if (!course) {
+    return c.json({ error: 'Course not found' }, 404);
+  }
+
+  if (course.author_id !== user.sub) {
+    return c.json({ error: 'Only the author can create lessons' }, 403);
+  }
+
+  // Use a transaction to safely compute the next order_index
+  const lesson = await db.$transaction(async (tx) => {
+    const maxLesson = await tx.lesson.findFirst({
+      where: { course_id: courseId },
+      orderBy: { order_index: 'desc' },
+      select: { order_index: true }
+    });
+    const next_order = maxLesson ? maxLesson.order_index + 1 : 0;
+
+    return tx.lesson.create({
+      data: {
+        course_id: courseId,
+        title,
+        order_index: next_order,
+      }
+    });
+  }, {
+    isolationLevel: 'Serializable'
+  });
+
+  return c.json(lesson, 201);
+});

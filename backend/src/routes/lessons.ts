@@ -88,3 +88,29 @@ lessonsRouter.post('/:id/upload-urls', authMiddleware, async (c) => {
 });
 
 export { lessonsRouter };
+
+lessonsRouter.post('/:id/publish', authMiddleware, async (c) => {
+  const id = c.req.param('id');
+  if (!id) return c.json({ error: 'Missing id' }, 400);
+  const user = c.get('user');
+
+  const lesson = await db.lesson.findUnique({
+    where: { id },
+    include: { course: true }
+  });
+
+  if (!lesson) {
+    return c.json({ error: 'Lesson not found' }, 404);
+  }
+
+  if (lesson.course.author_id !== user.sub) {
+    return c.json({ error: 'Only the author can publish the lesson' }, 403);
+  }
+
+  const updated = await db.lesson.update({
+    where: { id },
+    data: { published: true }
+  });
+
+  return c.json(updated);
+});
