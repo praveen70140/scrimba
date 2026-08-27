@@ -73,20 +73,57 @@ export class Player implements vscode.Disposable {
           if (oldTime < event.t && timeMs >= event.t) {
             if (this.stateManager.canTransition('CHALLENGE')) {
               this.stateManager.transition('CHALLENGE');
-              
-              // Run the challenge logic
-              const { ChallengeRunner } = require('../challenge/ChallengeRunner');
-              const runner = new ChallengeRunner(this.session);
-              runner.runChallenge(event as any).then(result => {
-                // Return to playing after challenge completes
-                if (this.stateManager.canTransition('PLAYING')) {
-                  this.stateManager.transition('PLAYING');
-                  this.play();
-                }
-              }).catch(e => console.error(e));
+              this.pause();
+              this.handleChallenge(event as any);
             }
           }
         }
+      }
+    }
+  }
+
+  private async handleChallenge(event: any) {
+    const promptMsg = `🎯 Challenge: ${event.prompt}`;
+    const options = [];
+    if (event.hint) options.push('Show Hint');
+    if (event.test_cmd) options.push('Check Answer');
+    options.push('Skip Challenge');
+    
+    while (this.session.playerState === 'CHALLENGE') {
+      const choice = await vscode.window.showInformationMessage(promptMsg, { modal: true }, ...options);
+      
+      if (choice === 'Show Hint') {
+        vscode.window.showInformationMessage(`💡 Hint: ${event.hint}`);
+      } else if (choice === 'Check Answer') {
+        if (!this.session.activeFork) {
+          vscode.window.showErrorMessage('You must fork the code first to solve the challenge!');
+          continue;
+        }
+        vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Running tests...' }, async () => {
+          const { ChallengeRunner } = require('../challenge/ChallengeRunner');
+          const runner = new ChallengeRunner();
+          
+          let timeoutMs = 30000;
+          if (event.time_limit_s) timeoutMs = event.time_limit_s * 1000;
+          
+          const result = await runner.runChallenge(event.test_cmd, this.session.activeFork!.forkPath, timeoutMs);
+          if (result.passed) {
+            vscode.window.showInformationMessage(`✅ Challenge Passed!\n\n${result.output}`);
+            if (this.stateManager.canTransition('PLAYING')) {
+              this.stateManager.transition('PLAYING');
+              this.play();
+            }
+          } else {
+            vscode.window.showErrorMessage(`❌ Challenge Failed\n\n${result.output}`);
+          }
+        });
+        if (this.session.playerState !== 'CHALLENGE') break; // passed
+      } else if (choice === 'Skip Challenge' || choice === undefined) {
+        if (this.stateManager.canTransition('PLAYING')) {
+          this.stateManager.transition('PLAYING');
+          this.play();
+        }
+        break;
       }
     }
   }
