@@ -18,6 +18,7 @@ import { Auth } from './api/Auth';
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Scrimba Clone Extension activated');
 
+
   const apiClient = new ApiClient();
   const auth = new Auth(context.secrets, apiClient);
   await auth.init();
@@ -45,7 +46,13 @@ export async function activate(context: vscode.ExtensionContext) {
   vscode.window.registerTreeDataProvider('scrim.myForks', myForksProvider);
 
   context.subscriptions.push(
-    // ── Auth ─────────────────────────────────────────────────────────────────
+    vscode.commands.registerCommand('scrim.openFork', async (uri: vscode.Uri) => {
+      if (uri) {
+        await WorkspaceManager.openFork(uri, context);
+      }
+    }),
+
+    // ── External ─────────────────────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.login', async () => {
       const email = await vscode.window.showInputBox({ prompt: 'Email' });
       if (!email) { return; }
@@ -125,17 +132,20 @@ export async function activate(context: vscode.ExtensionContext) {
       session.lessonMeta = { id: lessonId, title, courseId, durationMs: 0 };
       
       const starterUri = await WorkspaceManager.createStarterWorkspace(courseId, lessonId);
+      
+      const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
+      const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
+      await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title }, null, 2), 'utf-8'));
+
       const starterFile = vscode.Uri.joinPath(starterUri, 'index.js');
       await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
       
       myCoursesProvider.refresh();
       
-      try {
-        const doc = await vscode.workspace.openTextDocument(starterFile);
-        await vscode.window.showTextDocument(doc);
-      } catch (e) {}
-
-      vscode.window.showInformationMessage(`Lesson "${title}" created! Press "Scrim: Start Recording" when ready.`);
+      await vscode.commands.executeCommand('vscode.openFolder', starterUri, {
+        forceNewWindow: false,
+        filesToOpen: [starterFile],
+      });
     }),
 
 

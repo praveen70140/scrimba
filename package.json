@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "jsonwebtoken": "^9.0.3"
+  },
+  "dependencies": {
+    "ccusage": "^20.0.20"
   }
 }

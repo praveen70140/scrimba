@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { Paths } from '../utils/Paths';
 
 export class WorkspaceManager {
@@ -27,11 +29,18 @@ export class WorkspaceManager {
   }
 
   static async getLessonTitle(courseId: string, lessonId: string): Promise<string> {
+    const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
+    try {
+      const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
+      const content = await vscode.workspace.fs.readFile(metaUri);
+      const meta = JSON.parse(Buffer.from(content).toString('utf-8'));
+      if (meta.title) return meta.title;
+    } catch {}
+
     try {
       // If it has a lesson.scrim, read its metadata
-      const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
       const scrimUri = vscode.Uri.joinPath(lessonUri, 'lesson.scrim');
-      const { ScrimReader } = require('../core/ScrimReader');
+      const { ScrimReader } = require('../utils/ScrimReader');
       const data = await ScrimReader.read(scrimUri.fsPath);
       return data.meta.title || lessonId;
     } catch {
@@ -92,23 +101,9 @@ export class WorkspaceManager {
 
 
   /**
-   * Opens a fork in a new window so the current player session is not destroyed
+   * Opens a fork. Replaces the current window as requested by the user.
    */
   static async openFork(uri: vscode.Uri, context?: vscode.ExtensionContext): Promise<void> {
-    if (context && context.extensionMode === vscode.ExtensionMode.Development) {
-      // In development mode, `vscode.openFolder` with forceNewWindow opens a REGULAR VS Code window
-      // without the extension loaded. To fix this, we spawn a new extension development host process.
-      const cp = require('child_process');
-      const processEnv = Object.assign({}, process.env);
-      // Spawn standard VS Code CLI with the current extension path
-      const cmd = process.platform === 'win32' ? 'code.cmd' : 'code';
-      cp.spawn(cmd, ['--extensionDevelopmentPath=' + context.extensionPath, uri.fsPath], {
-        env: processEnv,
-        detached: true,
-        stdio: 'ignore'
-      }).unref();
-    } else {
-      await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: true });
-    }
+    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
   }
 }

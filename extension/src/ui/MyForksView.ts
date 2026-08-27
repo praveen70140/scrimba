@@ -54,9 +54,9 @@ export class MyForksViewProvider implements vscode.TreeDataProvider<vscode.TreeI
           item.description = lessonDir.name;
           item.iconPath = new vscode.ThemeIcon('git-branch');
           item.command = {
-            command: 'vscode.openFolder',
+            command: 'scrim.openFork',
             title: 'Open Fork',
-            arguments: [vscode.Uri.file(forkPath), { forceNewWindow: false }]
+            arguments: [vscode.Uri.file(forkPath)]
           };
           items.push(item);
         }

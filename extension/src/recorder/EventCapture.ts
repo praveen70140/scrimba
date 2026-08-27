@@ -31,7 +31,12 @@ export class EventCapture {
     return rel;
   }
 
+  private createQueue: Promise<void> = Promise.resolve();
+  private sessionGeneration = 0;
+
   public start(context: vscode.ExtensionContext): void {
+    this.sessionGeneration++;
+    const generation = this.sessionGeneration;
     // ── Text edits ───────────────────────────────────────────────────────────
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => {
@@ -115,26 +120,45 @@ export class EventCapture {
     this.disposables.push(watcher);
 
     this.disposables.push(
-      watcher.onDidCreate(async (uri) => {
+      watcher.onDidCreate((uri) => {
         const filePath = this.relativePath(uri);
         if (filePath && !filePath.includes('.git') && !filePath.includes('node_modules')) {
-          try {
-            const stat = await vscode.workspace.fs.stat(uri);
-            const isDir = stat.type === vscode.FileType.Directory;
-            let content: string | undefined = undefined;
-            if (!isDir) {
-              const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
-              if (openDoc) {
-                content = openDoc.getText();
-              } else {
-                const fileData = await vscode.workspace.fs.readFile(uri);
-                content = Buffer.from(fileData).toString('utf-8');
+          const t = this.elapsed;
+          const currentGen = generation;
+          
+          const workPromise = (async () => {
+            try {
+              const stat = await vscode.workspace.fs.stat(uri);
+              if (this.sessionGeneration !== currentGen) return null;
+              
+              const isDir = stat.type === vscode.FileType.Directory;
+              let content: string | undefined = undefined;
+              if (!isDir) {
+                if (stat.size > 1024 * 500) {
+                  content = "// File omitted: exceeds 500KB size limit";
+                } else {
+                  const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+                  if (openDoc) {
+                    content = openDoc.getText();
+                  } else {
+                    const fileData = await vscode.workspace.fs.readFile(uri);
+                    if (this.sessionGeneration !== currentGen) return null;
+                    content = Buffer.from(fileData).toString('utf-8');
+                  }
+                }
               }
+              return { t, type: 'file_create' as const, path: filePath, is_dir: isDir, content };
+            } catch (e) {
+              return null;
             }
-            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: isDir, content });
-          } catch {
-            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: false });
-          }
+          })();
+
+          this.createQueue = this.createQueue.then(async () => {
+            const event = await workPromise;
+            if (event && this.sessionGeneration === currentGen) {
+              this.session.recordedEvents.push(event);
+            }
+          });
         }
       }),
       watcher.onDidDelete((uri) => {
@@ -160,7 +184,9 @@ export class EventCapture {
     );
   }
 
-  public stop(): void {
+  public async stop(): Promise<void> {
+    this.sessionGeneration++;
+    await this.createQueue;
     for (const d of this.disposables) { d.dispose(); }
     this.disposables = [];
   }
