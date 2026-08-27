@@ -1,7 +1,11 @@
 {
-  "name": "extension",
+  "name": "scrimba-clone",
+  "displayName": "Scrimba Clone",
+  "description": "Interactive coding lessons in VS Code",
   "version": "1.0.0",
-  "publisher": "scrimba-clone",
+  "publisher": "scrimba",
+  "icon": "media/scrim-icon.svg",
+  "categories": ["Education", "Other"],
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -161,6 +165,16 @@
         { "id": "scrim.myCourses", "name": "My Courses", "type": "tree" },
         { "id": "scrim.myForks", "name": "My Forks", "type": "tree" }
       ]
+    },
+    "configuration": {
+      "title": "Scrim",
+      "properties": {
+        "scrim.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "Backend API URL for Scrim"
+        }
+      }
     }
   },
   "dependencies": {
