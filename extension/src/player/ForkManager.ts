@@ -8,7 +8,7 @@ import * as path from 'path';
  * Manages the lifecycle of a student's fork during playback.
  */
 export class ForkManager {
-  constructor(private session: ScrimSession) {}
+  constructor(private session: ScrimSession, private context: vscode.ExtensionContext) {}
 
   /**
    * Calculates the file state using StateHydrator and writes them to a physical fork directory.
@@ -47,7 +47,7 @@ export class ForkManager {
   public async openActiveFork(): Promise<void> {
     if (!this.session.activeFork) return;
     // Open the folder automatically in a new window so playback doesn't die
-    await WorkspaceManager.openFork(vscode.Uri.file(this.session.activeFork.forkPath));
+    await WorkspaceManager.openFork(vscode.Uri.file(this.session.activeFork.forkPath), this.context);
   }
 
   /**

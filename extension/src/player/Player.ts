@@ -14,10 +14,11 @@ export class Player implements vscode.Disposable {
   private playerPanel?: PlayerPanel;
 
   constructor(
+    private context: vscode.ExtensionContext,
     private session: ScrimSession,
     private stateManager: StateManager
   ) {
-    this.forkManager = new ForkManager(this.session);
+    this.forkManager = new ForkManager(this.session, this.context);
     this.stateManager.onDidTransition(e => this.handleStateTransition(e.from, e.to));
   }
 

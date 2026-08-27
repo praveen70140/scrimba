@@ -25,7 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const session = new ScrimSession();
   const stateManager = new StateManager(session);
   const statusBar = new StatusBar(session, null as any, stateManager); // will fix circular dep shortly
-  const player = new Player(session, stateManager);
+  const player = new Player(context, session, stateManager);
   let recorder: Recorder | undefined;
   
   // Hack to satisfy StatusBar needing Player for time sync 
