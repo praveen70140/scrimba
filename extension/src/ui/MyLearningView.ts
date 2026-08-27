@@ -16,22 +16,18 @@ export class MyLearningViewProvider implements vscode.TreeDataProvider<vscode.Tr
 
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     if (element) {
-      if ((element as any).courseId) {
-        try {
-          const course = await this.apiClient.getCourse((element as any).courseId);
-          return (course.lessons || []).map((l: any) => {
-            const item = new vscode.TreeItem(l.title, vscode.TreeItemCollapsibleState.None);
-            item.iconPath = new vscode.ThemeIcon('play-circle');
-            item.command = {
-              command: 'scrim.playLesson',
-              title: 'Play Lesson',
-              arguments: [course.id, l.id]
-            };
-            return item;
-          });
-        } catch (e: any) {
-          return [new vscode.TreeItem('Failed to load lessons')];
-        }
+      if ((element as any).lessons) {
+        return (element as any).lessons.map((l: any) => {
+          const item = new vscode.TreeItem(l.title, vscode.TreeItemCollapsibleState.None);
+          item.iconPath = new vscode.ThemeIcon(l.completed ? 'pass-filled' : 'play-circle');
+          item.description = l.completed ? 'Completed' : '';
+          item.command = {
+            command: 'scrim.playLesson',
+            title: 'Play Lesson',
+            arguments: [(element as any).courseId, l.id]
+          };
+          return item;
+        });
       }
       return [];
     }
@@ -43,9 +39,12 @@ export class MyLearningViewProvider implements vscode.TreeDataProvider<vscode.Tr
       }
 
       return enrollments.map(e => {
+        const percent = e.totalCount === 0 ? 0 : Math.round((e.completedCount / e.totalCount) * 100);
         const item = new vscode.TreeItem(e.course.title, vscode.TreeItemCollapsibleState.Collapsed);
+        item.description = `${e.completedCount}/${e.totalCount} lessons (${percent}%)`;
         item.iconPath = new vscode.ThemeIcon('mortar-board');
         (item as any).courseId = e.course.id;
+        (item as any).lessons = e.course.lessons;
         return item;
       });
     } catch (e: any) {

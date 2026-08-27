@@ -162,10 +162,20 @@ export async function activate(context: vscode.ExtensionContext) {
       const title = await vscode.window.showInputBox({ prompt: 'Lesson title' });
       if (!title) { return; }
 
-      const languageHint = await vscode.window.showInputBox({ prompt: 'Language hint (e.g., javascript, python, rust)', value: 'javascript' }) || 'javascript';
-      const runtimeHint = await vscode.window.showInputBox({ prompt: 'Runtime hint (e.g., node >= 20, python 3.12)', value: 'node >= 20' }) || 'node >= 20';
+      const fs = require('fs') as typeof import('fs');
+      const templatesDir = path.join(__dirname, '..', 'templates');
+      let templates = ['node-20', 'python-312', 'rust-stable', 'go-122'];
+      try {
+        templates = fs.readdirSync(templatesDir).filter((d: string) => fs.statSync(path.join(templatesDir, d)).isDirectory());
+      } catch {}
 
-      const lessonId = 'lesson-' + Date.now();
+      const templateName = await vscode.window.showQuickPick(templates, { placeHolder: 'Select a runtime template' });
+      if (!templateName) return;
+
+      const languageHint = templateName;
+      const runtimeHint = templateName;
+
+      const lessonId = `lesson-${Date.now()}`;
       session.lessonMeta = { id: lessonId, title, courseId, durationMs: 0 };
       
       const starterUri = await WorkspaceManager.createStarterWorkspace(courseId, lessonId);
@@ -174,13 +184,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
       await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title, languageHint, runtimeHint }, null, 2), 'utf-8'));
 
-      const fs = require('fs') as typeof import('fs');
-      let templateName = 'node-20';
-      if (languageHint.toLowerCase().includes('python')) templateName = 'python-312';
-      else if (languageHint.toLowerCase().includes('rust')) templateName = 'rust-stable';
-      else if (languageHint.toLowerCase().includes('go')) templateName = 'go-122';
-      
-      const templateDir = path.join(__dirname, '..', 'templates', templateName);
+      const templateDir = path.join(templatesDir, templateName);
       if (fs.existsSync(templateDir)) {
         await vscode.workspace.fs.copy(vscode.Uri.file(templateDir), starterUri, { overwrite: true });
       } else {
@@ -250,6 +254,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
+    vscode.commands.registerCommand('scrim.searchCatalog', async () => {
+      const query = await vscode.window.showInputBox({ prompt: 'Search courses by title, tag, or level' });
+      if (query !== undefined) {
+        catalogProvider.setSearchQuery(query);
+      }
+    }),
     vscode.commands.registerCommand('scrim.enroll', async (item?: any) => {
       if (!item || !item.courseId) return;
       try {
@@ -572,6 +582,17 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
       });
     })
   );
+
+  // If we are currently in a fork workspace, automatically activate Nix terminal
+  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+    const rootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    const fs = require('fs') as typeof import('fs');
+    if (fs.existsSync(path.join(rootPath, '.fork-meta.json'))) {
+      const { NixManager } = require('./workspace/NixManager');
+      const nix = new NixManager();
+      nix.activate(rootPath);
+    }
+  }
 }
 
 export function deactivate() {}

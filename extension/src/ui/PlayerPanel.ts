@@ -71,6 +71,18 @@ export class PlayerPanel {
         case 'timeupdate':
           this.player.updateTime(message.timeMs);
           break;
+        case 'ended': {
+          vscode.window.showInformationMessage(
+            'You finished this lesson!', 
+            'Mark Complete', 
+            'Next Lesson'
+          ).then(choice => {
+            if (choice === 'Mark Complete' || choice === 'Next Lesson') {
+              vscode.commands.executeCommand('scrim.markComplete', this.session.lessonMeta.courseId, this.session.lessonMeta.id);
+            }
+          });
+          break;
+        }
         case 'openFork': {
           const forkPath = path.join(Paths.getForksDir(this.session.lessonMeta.id), message.forkId);
           vscode.commands.executeCommand('scrim.openFork', vscode.Uri.file(forkPath));
@@ -333,6 +345,10 @@ export class PlayerPanel {
             webcam.pause();
             audio.pause();
             vscode.postMessage({ command: 'pause' });
+          });
+
+          vid.addEventListener('ended', () => {
+            vscode.postMessage({ command: 'ended' });
           });
 
           function togglePlay() {

@@ -33,7 +33,28 @@ enrollRouter.get('/', authMiddleware, async (c) => {
     where: { user_id: user.sub },
     include: { course: { include: { lessons: true } } }
   });
-  return c.json(enrollments);
+  
+  const progressList = await db.progress.findMany({
+    where: { user_id: user.sub, completed: true }
+  });
+  const completedLessonIds = new Set(progressList.map(p => p.lesson_id));
+
+  const result = enrollments.map(e => {
+    let completedCount = 0;
+    const lessons = e.course.lessons.map(l => {
+      const isCompleted = completedLessonIds.has(l.id);
+      if (isCompleted) completedCount++;
+      return { ...l, completed: isCompleted };
+    });
+    return {
+      ...e,
+      course: { ...e.course, lessons },
+      completedCount,
+      totalCount: lessons.length
+    };
+  });
+  
+  return c.json(result);
 });
 
 enrollRouter.delete('/:courseId', authMiddleware, async (c) => {
