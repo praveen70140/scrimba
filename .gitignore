@@ -4,7 +4,6 @@ node_modules
 dist
 .vscode-test
 .env
-.env.*
 !.env.example
 .env.docker
 webm-preview/
