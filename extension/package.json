@@ -75,6 +75,11 @@
         "icon": "$(cloud-upload)"
       },
       {
+        "command": "scrim.enroll",
+        "title": "Scrim: Enroll",
+        "icon": "$(add)"
+      },
+      {
         "command": "scrim.fork",
         "title": "Scrim: Fork Here"
       },
@@ -108,6 +113,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "scrim.enroll",
+          "when": "view == scrim.catalog && viewItem == course",
+          "group": "inline"
+        },
         {
           "command": "scrim.newLesson",
           "when": "view == scrim.myCourses && viewItem == course",
@@ -162,7 +172,8 @@
     "views": {
       "scrim-sidebar": [
         { "id": "scrim.catalog", "name": "Course Catalog", "type": "tree" },
-        { "id": "scrim.myCourses", "name": "My Courses", "type": "tree" },
+        { "id": "scrim.myLearning", "name": "My Learning", "type": "tree" },
+        { "id": "scrim.myCourses", "name": "My Courses (Teacher)", "type": "tree" },
         { "id": "scrim.myForks", "name": "My Forks", "type": "tree" }
       ]
     },

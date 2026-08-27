@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { CatalogViewProvider } from './ui/CatalogView';
+import { MyLearningViewProvider } from './ui/MyLearningView';
 import { MyCoursesViewProvider } from './ui/MyCoursesView';
 import { MyForksViewProvider } from './ui/MyForksView';
 import { WorkspaceManager } from './workspace/WorkspaceManager';
@@ -38,10 +39,12 @@ export async function activate(context: vscode.ExtensionContext) {
   player.setPlayerPanel(playerPanel);
 
   const catalogProvider = new CatalogViewProvider(apiClient);
+  const myLearningProvider = new MyLearningViewProvider(apiClient);
   const myCoursesProvider = new MyCoursesViewProvider();
   const myForksProvider = new MyForksViewProvider();
-
+  
   vscode.window.registerTreeDataProvider('scrim.catalog', catalogProvider);
+  vscode.window.registerTreeDataProvider('scrim.myLearning', myLearningProvider);
   vscode.window.registerTreeDataProvider('scrim.myCourses', myCoursesProvider);
   vscode.window.registerTreeDataProvider('scrim.myForks', myForksProvider);
 
@@ -233,6 +236,17 @@ export async function activate(context: vscode.ExtensionContext) {
         });
       } catch (e: any) {
         vscode.window.showErrorMessage('Failed to play lesson: ' + e.message);
+      }
+    }),
+
+    vscode.commands.registerCommand('scrim.enroll', async (item?: any) => {
+      if (!item || !item.courseId) return;
+      try {
+        await apiClient.enroll(item.courseId);
+        vscode.window.showInformationMessage('Enrolled successfully!');
+        catalogProvider.refresh();
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to enroll: ' + e.message);
       }
     }),
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../api/ApiClient';
 
-export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class MyLearningViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   constructor(private apiClient: ApiClient) {}
@@ -37,24 +37,19 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
     }
     
     try {
-      const courses = (await this.apiClient.getCourses()) || [];
-      if (courses.length === 0) {
-        return [new vscode.TreeItem('No courses published yet.', vscode.TreeItemCollapsibleState.None)];
+      const enrollments = (await this.apiClient.request<any[]>('GET', '/enroll')) || [];
+      if (enrollments.length === 0) {
+        return [new vscode.TreeItem('No enrollments yet.', vscode.TreeItemCollapsibleState.None)];
       }
 
-      return courses.map(c => {
-        const item = new vscode.TreeItem(c.title, vscode.TreeItemCollapsibleState.Collapsed);
-        item.description = c.description || undefined;
-        item.iconPath = new vscode.ThemeIcon('cloud');
-        item.contextValue = 'course';
-        (item as any).courseId = c.id;
+      return enrollments.map(e => {
+        const item = new vscode.TreeItem(e.course.title, vscode.TreeItemCollapsibleState.Collapsed);
+        item.iconPath = new vscode.ThemeIcon('mortar-board');
+        (item as any).courseId = e.course.id;
         return item;
       });
     } catch (e: any) {
-      console.error('[CatalogView] Failed to fetch courses:', e.message, e);
-      const errItem = new vscode.TreeItem('Failed to connect to backend.', vscode.TreeItemCollapsibleState.None);
-      errItem.description = "Is backend running?";
-      return [errItem];
+      return [new vscode.TreeItem('Failed to connect to backend.', vscode.TreeItemCollapsibleState.None)];
     }
   }
 }

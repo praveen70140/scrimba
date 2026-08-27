@@ -27,4 +27,22 @@ enrollRouter.post('/:courseId', authMiddleware, async (c) => {
   }
 });
 
+enrollRouter.get('/', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const enrollments = await db.enrollment.findMany({
+    where: { user_id: user.sub },
+    include: { course: { include: { lessons: true } } }
+  });
+  return c.json(enrollments);
+});
+
+enrollRouter.delete('/:courseId', authMiddleware, async (c) => {
+  const courseId = c.req.param('courseId');
+  const user = c.get('user');
+  await db.enrollment.deleteMany({
+    where: { user_id: user.sub, course_id: courseId }
+  });
+  return c.json({ success: true });
+});
+
 export { enrollRouter };
