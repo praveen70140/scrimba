@@ -7,3 +7,9 @@ dist
 !.env.example
 .env.docker
 webm-preview/
+*.rpm
+test-*.js
+test-*.ts
+patch*.js
+all_*.txt
+backend/test-*.js
