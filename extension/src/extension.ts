@@ -210,34 +210,37 @@ export async function activate(context: vscode.ExtensionContext) {
       
       myCoursesProvider.refresh();
       
-      // Open files in the editor without reloading the window.
-      // We deliberately avoid vscode.openFolder and updateWorkspaceFolders here:
-      // - openFolder reloads the extension host, killing EventCapture listeners
-      // - updateWorkspaceFolders when going from "no workspace" to "single folder"
-      //   also triggers a reload on some VS Code versions
-      // EventCapture.workspaceRoot is set directly from lessonDir/starter (not from
-      // the VS Code workspace API), so recordings work regardless of what folder is open.
-      if (filesToOpen.length > 0) {
-        for (const fileUri of filesToOpen) {
+      // Add the starter folder to the VS Code workspace so the Explorer shows the files.
+      // If VS Code already has workspace folders open (multi-root), updateWorkspaceFolders
+      // adds it without a reload. If there are no folders yet, we must use openFolder
+      // which will reload the window — that's unavoidable (VS Code requires it), but the
+      // extension will reactivate and the user can then start recording normally.
+      const existingFolders = vscode.workspace.workspaceFolders;
+      if (existingFolders && existingFolders.length > 0) {
+        // Multi-root: add starter alongside existing folders (no reload)
+        const alreadyAdded = existingFolders.some(f => f.uri.fsPath === starterUri.fsPath);
+        if (!alreadyAdded) {
+          // Remove any other scrimba starter folders first
+          const toRemove = existingFolders.filter(f =>
+            f.uri.fsPath.includes(path.join('.scrimba', 'courses')) && f.uri.fsPath.endsWith('starter')
+          );
+          vscode.workspace.updateWorkspaceFolders(0, toRemove.length, { uri: starterUri, name: title });
+        }
+        // Open the best file to edit (prefer index.js over flake.nix etc.)
+        const preferredNames = ['index.js', 'main.js', 'index.ts', 'main.ts', 'index.py', 'main.py', 'main.rs', 'main.go'];
+        const allFiles = fs.readdirSync(starterUri.fsPath).filter((f: string) => !f.startsWith('.') && fs.statSync(path.join(starterUri.fsPath, f)).isFile());
+        const fileToOpen = preferredNames.find(n => allFiles.includes(n)) || allFiles[0];
+        if (fileToOpen) {
           try {
-            const doc = await vscode.workspace.openTextDocument(fileUri);
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(starterUri, fileToOpen));
             await vscode.window.showTextDocument(doc, { preview: false });
           } catch {}
         }
       } else {
-        // Open first non-hidden file from template
-        const templateFiles = fs.readdirSync(starterUri.fsPath).filter((f: string) => !f.startsWith('.'));
-        for (const fname of templateFiles) {
-          try {
-            const fileUri = vscode.Uri.joinPath(starterUri, fname);
-            const stat = fs.statSync(fileUri.fsPath);
-            if (stat.isFile()) {
-              const doc = await vscode.workspace.openTextDocument(fileUri);
-              await vscode.window.showTextDocument(doc, { preview: false });
-              break;
-            }
-          } catch {}
-        }
+        // No workspace open yet — openFolder is unavoidable (VS Code must reload to open a folder).
+        // The extension will reactivate after reload; user can then start recording.
+        await vscode.commands.executeCommand('vscode.openFolder', starterUri, { forceNewWindow: false });
+        return; // Extension host will restart, remaining code won't run
       }
       vscode.window.showInformationMessage(`Lesson "${title}" created. You can now start recording.`);
     }),
