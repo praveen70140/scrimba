@@ -245,8 +245,27 @@ export async function activate(context: vscode.ExtensionContext) {
         await apiClient.enroll(item.courseId);
         vscode.window.showInformationMessage('Enrolled successfully!');
         catalogProvider.refresh();
+        myLearningProvider.refresh();
       } catch (e: any) {
         vscode.window.showErrorMessage('Failed to enroll: ' + e.message);
+      }
+    }),
+
+    vscode.commands.registerCommand('scrim.markComplete', async (courseId: string, lessonId: string) => {
+      try {
+        await apiClient.markComplete(lessonId);
+        vscode.window.showInformationMessage('Lesson completed!');
+        myLearningProvider.refresh();
+        
+        // Next Lesson auto-navigation
+        const course = await apiClient.getCourse(courseId);
+        const currentIndex = course.lessons.findIndex(l => l.id === lessonId);
+        if (currentIndex !== -1 && currentIndex + 1 < course.lessons.length) {
+          const nextLesson = course.lessons[currentIndex + 1];
+          vscode.commands.executeCommand('scrim.playLesson', courseId, nextLesson.id);
+        }
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to mark lesson complete: ' + e.message);
       }
     }),
 
