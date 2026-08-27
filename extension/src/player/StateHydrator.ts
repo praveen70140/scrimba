@@ -16,6 +16,8 @@ export class StateHydrator {
     // Clone the initial state
     const files: Record<string, string> = { ...initialFiles };
 
+    console.log(`[StateHydrator] hydrate called: targetTimeMs=${targetTimeMs}, events=${events.length}, initialFiles=${Object.keys(initialFiles).join(', ') || 'NONE'}`);
+
     // 1. Find the offset for buggy absolute events
     let timeOffset = 0;
     for (const event of events) {
@@ -33,8 +35,10 @@ export class StateHydrator {
       }
 
       if (adjustedT > targetTimeMs) {
+        console.log(`[StateHydrator] SKIP event t=${event.t} (adjustedT=${adjustedT} > targetTimeMs=${targetTimeMs}) type=${event.type}`);
         continue; // Don't break, just skip, in case events are slightly out of order due to mixed timestamps
       }
+      console.log(`[StateHydrator] APPLY event t=${event.t} (adjustedT=${adjustedT}) type=${event.type} path=${(event as any).path || ''}`);
 
       switch (event.type) {
         case 'file_create': {

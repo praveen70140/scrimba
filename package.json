@@ -11,7 +11,7 @@
     "build:backend": "cd backend && bun run tsc -b",
     "build:extension": "cd extension && bun run tsc -b",
     "dev:backend": "cd backend && bun run --watch src/index.ts",
-    "postinstall": "cd backend && bunx prisma generate"
+    "postinstall": "cd backend && bun x prisma generate"
   },
   "devDependencies": {
     "jsonwebtoken": "^9.0.3"

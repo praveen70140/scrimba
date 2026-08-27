@@ -23,6 +23,7 @@ export class EventCapture {
   }
 
   private relativePath(uri: vscode.Uri): string {
+    if (uri.scheme !== 'file') return '';
     const rel = path.relative(this.workspaceRoot, uri.fsPath);
     // Security: ignore files outside workspace root
     if (path.isAbsolute(rel) || rel === '..' || rel.startsWith(`..${path.sep}`)) {
@@ -35,6 +36,7 @@ export class EventCapture {
   private sessionGeneration = 0;
 
   public start(context: vscode.ExtensionContext): void {
+    console.log(`[EventCapture] Started. workspaceRoot="${this.workspaceRoot}", recordingStartMs=${this.session.recordingStartMs}`);
 
     // ── Terminal events ──────────────────────────────────────────────────────
     if ((vscode.window as any).onDidWriteTerminalData) {
@@ -67,9 +69,14 @@ export class EventCapture {
     // ── Text edits ───────────────────────────────────────────────────────────
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => {
+        const rawPath = e.document.uri.fsPath;
         const filePath = this.relativePath(e.document.uri);
-        if (!filePath) { return; }
+        if (!filePath) {
+          console.log(`[EventCapture] IGNORED edit in "${rawPath}" (outside workspaceRoot "${this.workspaceRoot}")`);
+          return;
+        }
         for (const change of e.contentChanges) {
+          console.log(`[EventCapture] edit t=${this.elapsed} path="${filePath}" text="${change.text.slice(0, 30).replace(/\n/g, '\\n')}"`);
           this.session.recordedEvents.push({
             t: this.elapsed,
             type: 'edit',

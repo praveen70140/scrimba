@@ -143,6 +143,7 @@ export class Recorder {
     ]);
 
     const allEvents = this.session.recordedEvents;
+    console.log(`[Recorder] stop(): captured ${allEvents.length} events, duration=${this.session.recordingElapsedMs}ms`);
 
     // Write the .scrim file
     const duration = this.session.recordingElapsedMs;
