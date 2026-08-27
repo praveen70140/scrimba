@@ -9,6 +9,7 @@ import { StateManager } from './core/StateManager';
 import { Paths } from './utils/Paths';
 import { Recorder } from './recorder/Recorder';
 import { Player } from './player/Player';
+import { Downloader } from './player/Downloader';
 import { PlayerPanel } from './ui/PlayerPanel';
 import { BrowserPreviewPanel } from './ui/BrowserPreviewPanel';
 import { StatusBar } from './ui/StatusBar';
@@ -212,6 +213,28 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
+
+    vscode.commands.registerCommand('scrim.playLesson', async (courseId: string, lessonId: string) => {
+      try {
+        await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: 'Downloading lesson assets...',
+          cancellable: false
+        }, async () => {
+          const downloader = new Downloader(apiClient);
+          const cacheDir = await downloader.downloadLessonAssets(lessonId);
+          
+          await player.loadLesson(path.join(cacheDir, 'lesson.scrim'));
+          // Set media base dir so PlayerPanel can serve media from cache
+          session.lessonDir = cacheDir; 
+          
+          playerPanel.show(cacheDir, []); // Pass empty forks or load forks if we want
+          player.play();
+        });
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to play lesson: ' + e.message);
+      }
+    }),
 
     vscode.commands.registerCommand('scrim.startRecording', async (item?: any) => {
       if (session.isRecording) {

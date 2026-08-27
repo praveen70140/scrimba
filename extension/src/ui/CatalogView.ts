@@ -16,6 +16,23 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
 
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     if (element) {
+      if ((element as any).courseId) {
+        try {
+          const course = await this.apiClient.getCourse((element as any).courseId);
+          return (course.lessons || []).map((l: any) => {
+            const item = new vscode.TreeItem(l.title, vscode.TreeItemCollapsibleState.None);
+            item.iconPath = new vscode.ThemeIcon('play-circle');
+            item.command = {
+              command: 'scrim.playLesson',
+              title: 'Play Lesson',
+              arguments: [course.id, l.id]
+            };
+            return item;
+          });
+        } catch (e: any) {
+          return [new vscode.TreeItem('Failed to load lessons')];
+        }
+      }
       return [];
     }
     
@@ -26,15 +43,16 @@ export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeI
       }
 
       return courses.map(c => {
-        const item = new vscode.TreeItem(c.title, vscode.TreeItemCollapsibleState.None);
+        const item = new vscode.TreeItem(c.title, vscode.TreeItemCollapsibleState.Collapsed);
         item.description = c.description || undefined;
         item.iconPath = new vscode.ThemeIcon('cloud');
+        (item as any).courseId = c.id;
         return item;
       });
     } catch (e: any) {
       console.error('[CatalogView] Failed to fetch courses:', e.message, e);
       const errItem = new vscode.TreeItem('Failed to connect to backend.', vscode.TreeItemCollapsibleState.None);
-      errItem.description = "Is `bun run --hot src/index.ts` running?";
+      errItem.description = "Is backend running?";
       return [errItem];
     }
   }

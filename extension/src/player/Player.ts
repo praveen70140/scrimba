@@ -62,6 +62,35 @@ export class Player implements vscode.Disposable {
     }
   }
 
+  public updateTime(timeMs: number): void {
+    const oldTime = this.session.currentTimeMs;
+    this.session.currentTimeMs = timeMs;
+
+    // Check if we crossed a challenge event
+    if (this.session.playerState === 'PLAYING' && this.session.events) {
+      for (const event of this.session.events) {
+        if (event.type === 'challenge') {
+          if (oldTime < event.t && timeMs >= event.t) {
+            if (this.stateManager.canTransition('CHALLENGE')) {
+              this.stateManager.transition('CHALLENGE');
+              
+              // Run the challenge logic
+              const { ChallengeRunner } = require('../challenge/ChallengeRunner');
+              const runner = new ChallengeRunner(this.session);
+              runner.runChallenge(event as any).then(result => {
+                // Return to playing after challenge completes
+                if (this.stateManager.canTransition('PLAYING')) {
+                  this.stateManager.transition('PLAYING');
+                  this.play();
+                }
+              }).catch(e => console.error(e));
+            }
+          }
+        }
+      }
+    }
+  }
+
   public seekTo(timeMs: number): void {
     this.session.currentTimeMs = timeMs;
     // Tell the Webviews to seek their HTML5 <video> elements

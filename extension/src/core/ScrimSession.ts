@@ -35,6 +35,7 @@ export class ScrimSession {
 
   // ── Workspace paths ──────────────────────────────────────────────────────
   public teacherDir: string = '';        // readonly teacher playback folder
+  public lessonDir: string = '';         // active media/scrim file dir
   public activeFork: ForkInfo | null = null;  // currently open fork, if any
 
   // ── Recording state (used in teacher mode) ────────────────────────────────

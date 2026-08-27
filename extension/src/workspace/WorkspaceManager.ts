@@ -104,6 +104,12 @@ export class WorkspaceManager {
    * Opens a fork. Replaces the current window as requested by the user.
    */
   static async openFork(uri: vscode.Uri, context?: vscode.ExtensionContext): Promise<void> {
-    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
+    const action = await vscode.window.showQuickPick(
+      ['Open in New Window', 'Replace Current Window'],
+      { placeHolder: 'How would you like to open this fork?' }
+    );
+    if (!action) return;
+    const forceNewWindow = action === 'Open in New Window';
+    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow });
   }
 }

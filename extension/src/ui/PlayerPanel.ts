@@ -69,7 +69,7 @@ export class PlayerPanel {
           this.player.fork(); 
           break;
         case 'timeupdate':
-          this.session.currentTimeMs = message.timeMs;
+          this.player.updateTime(message.timeMs);
           break;
         case 'openFork': {
           const forkPath = path.join(Paths.getForksDir(this.session.lessonMeta.id), message.forkId);
