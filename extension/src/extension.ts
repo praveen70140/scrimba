@@ -269,6 +269,34 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
+    vscode.commands.registerCommand('scrim.editCourseMetadata', async (item?: any) => {
+      if (!item || !item.courseId) return;
+      const desc = await vscode.window.showInputBox({ prompt: 'Enter new course description' });
+      const level = await vscode.window.showQuickPick(['beginner', 'intermediate', 'advanced'], { placeHolder: 'Select level' });
+      if (desc && level) {
+        await apiClient.request('PUT', `/courses/${item.courseId}`, { description: desc, level });
+        myCoursesProvider.refresh();
+      }
+    }),
+    
+    vscode.commands.registerCommand('scrim.moveLessonUp', async (item?: any) => {
+      if (!item || !item.courseId || !item.lessonId) return;
+      try {
+        const course = await apiClient.getCourse(item.courseId);
+        const idx = course.lessons.findIndex(l => l.id === item.lessonId);
+        if (idx > 0) {
+          const newOrder = [...course.lessons];
+          [newOrder[idx-1], newOrder[idx]] = [newOrder[idx], newOrder[idx-1]];
+          await apiClient.request('PUT', `/courses/${item.courseId}/lessons/order`, { 
+            lessonIds: newOrder.map(l => l.id) 
+          });
+          myCoursesProvider.refresh();
+        }
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to reorder: ' + e.message);
+      }
+    }),
+
     vscode.commands.registerCommand('scrim.startRecording', async (item?: any) => {
       if (session.isRecording) {
         vscode.window.showWarningMessage('Recording already in progress.');

@@ -102,6 +102,16 @@
       {
         "command": "scrim.logout",
         "title": "Scrim: Logout"
+      },
+      {
+        "command": "scrim.editCourseMetadata",
+        "title": "Scrim: Edit Course Details",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "scrim.moveLessonUp",
+        "title": "Scrim: Move Lesson Up",
+        "icon": "$(arrow-up)"
       }
     ],
     "menus": {
@@ -129,6 +139,11 @@
           "group": "1_modification"
         },
         {
+          "command": "scrim.editCourseMetadata",
+          "when": "view == scrim.myCourses && viewItem == course",
+          "group": "1_modification"
+        },
+        {
           "command": "scrim.deleteCourse",
           "when": "view == scrim.myCourses && viewItem == course",
           "group": "1_modification"
@@ -145,6 +160,11 @@
         },
         {
           "command": "scrim.publishLesson",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        },
+        {
+          "command": "scrim.moveLessonUp",
           "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "inline"
         },
