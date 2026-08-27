@@ -40,30 +40,37 @@ export class EventCapture {
     console.log(`[EventCapture] Started. workspaceRoot="${this.workspaceRoot}", recordingStartMs=${this.session.recordingStartMs}`);
     console.log(`[EventCapture] VS Code workspace folders: ${wsFolders}`);
 
-    // ── Terminal events ──────────────────────────────────────────────────────
-    if ((vscode.window as any).onDidWriteTerminalData) {
-      this.disposables.push(
-        (vscode.window as any).onDidWriteTerminalData((e: any) => {
-          this.session.recordedEvents.push({
-            t: this.elapsed,
-            type: 'terminal_out',
-            text: e.data,
-          });
-        })
-      );
+    // ── Terminal events (proposed APIs — must not crash if not available) ───
+    try {
+      if ((vscode.window as any).onDidWriteTerminalData) {
+        this.disposables.push(
+          (vscode.window as any).onDidWriteTerminalData((e: any) => {
+            this.session.recordedEvents.push({
+              t: this.elapsed,
+              type: 'terminal_out',
+              text: e.data,
+            });
+          })
+        );
+      }
+    } catch {
+      console.warn('[EventCapture] onDidWriteTerminalData not available (proposed API not enabled)');
     }
     
-    // We can also track when terminal shell execution starts as a command
-    if ((vscode.window as any).onDidStartTerminalShellExecution) {
-      this.disposables.push(
-        (vscode.window as any).onDidStartTerminalShellExecution((e: any) => {
-          this.session.recordedEvents.push({
-            t: this.elapsed,
-            type: 'terminal_cmd',
-            text: e.execution?.commandLine?.value || 'unknown command',
-          });
-        })
-      );
+    try {
+      if ((vscode.window as any).onDidStartTerminalShellExecution) {
+        this.disposables.push(
+          (vscode.window as any).onDidStartTerminalShellExecution((e: any) => {
+            this.session.recordedEvents.push({
+              t: this.elapsed,
+              type: 'terminal_cmd',
+              text: e.execution?.commandLine?.value || 'unknown command',
+            });
+          })
+        );
+      }
+    } catch {
+      console.warn('[EventCapture] onDidStartTerminalShellExecution not available (proposed API not enabled)');
     }
 
     this.sessionGeneration++;

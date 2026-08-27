@@ -210,34 +210,38 @@ export async function activate(context: vscode.ExtensionContext) {
       
       myCoursesProvider.refresh();
       
-      // IMPORTANT: Use updateWorkspaceFolders instead of vscode.openFolder.
-      // openFolder reloads the entire extension host in a new window context, which
-      // kills the EventCapture listeners mid-recording. updateWorkspaceFolders adds
-      // the starter dir to the current workspace WITHOUT reloading, keeping the
-      // extension host (and event listeners) alive.
-      const currentFolders = vscode.workspace.workspaceFolders || [];
-      // Remove any existing starter folders from other lessons to avoid clutter
-      const foldersToRemove = currentFolders.filter(f => 
-        f.uri.fsPath.includes(path.join('.scrimba', 'courses')) && f.uri.fsPath.endsWith('starter')
-      );
-      vscode.workspace.updateWorkspaceFolders(
-        0,
-        foldersToRemove.length,
-        { uri: starterUri, name: `${title} (starter)` }
-      );
-
-      // Open the files in the editor
-      for (const fileUri of filesToOpen) {
-        await vscode.window.showTextDocument(fileUri, { preview: false });
-      }
-      if (filesToOpen.length === 0) {
-        // Open first file from the template dir
+      // Open files in the editor without reloading the window.
+      // We deliberately avoid vscode.openFolder and updateWorkspaceFolders here:
+      // - openFolder reloads the extension host, killing EventCapture listeners
+      // - updateWorkspaceFolders when going from "no workspace" to "single folder"
+      //   also triggers a reload on some VS Code versions
+      // EventCapture.workspaceRoot is set directly from lessonDir/starter (not from
+      // the VS Code workspace API), so recordings work regardless of what folder is open.
+      if (filesToOpen.length > 0) {
+        for (const fileUri of filesToOpen) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(fileUri);
+            await vscode.window.showTextDocument(doc, { preview: false });
+          } catch {}
+        }
+      } else {
+        // Open first non-hidden file from template
         const templateFiles = fs.readdirSync(starterUri.fsPath).filter((f: string) => !f.startsWith('.'));
-        if (templateFiles.length > 0) {
-          await vscode.window.showTextDocument(vscode.Uri.joinPath(starterUri, templateFiles[0]), { preview: false });
+        for (const fname of templateFiles) {
+          try {
+            const fileUri = vscode.Uri.joinPath(starterUri, fname);
+            const stat = fs.statSync(fileUri.fsPath);
+            if (stat.isFile()) {
+              const doc = await vscode.workspace.openTextDocument(fileUri);
+              await vscode.window.showTextDocument(doc, { preview: false });
+              break;
+            }
+          } catch {}
         }
       }
+      vscode.window.showInformationMessage(`Lesson "${title}" created. You can now start recording.`);
     }),
+
 
 
     vscode.commands.registerCommand('scrim.renameLesson', async (item?: any) => {
