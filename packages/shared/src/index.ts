@@ -59,7 +59,7 @@ export const ScrimEventSchema = z.discriminatedUnion('type', [
     path: z.string(),
     top_line: z.number().int(),
   }),
-  z.object({ t: z.number().int(), type: z.literal('file_create'), path: z.string(), is_dir: z.boolean().default(false) }),
+  z.object({ t: z.number().int(), type: z.literal('file_create'), path: z.string(), is_dir: z.boolean().default(false), content: z.string().optional() }),
   z.object({ t: z.number().int(), type: z.literal('file_delete'), path: z.string() }),
   z.object({ t: z.number().int(), type: z.literal('file_rename'), old_path: z.string(), new_path: z.string() }),
   z.object({ t: z.number().int(), type: z.literal('terminal_cmd'), text: z.string() }),

@@ -108,30 +108,46 @@ export class EventCapture {
       })
     );
 
-    // ── File create / delete / rename ─────────────────────────────────────────
+    // ── Robust File System Watcher ───────────────────────────────────────────
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(this.workspaceRoot, '**/*')
+    );
+    this.disposables.push(watcher);
+
     this.disposables.push(
-      vscode.workspace.onDidCreateFiles(async (e) => {
-        for (const file of e.files) {
-          const filePath = this.relativePath(file);
-          if (filePath) {
-            try {
-              const stat = await vscode.workspace.fs.stat(file);
-              const isDir = stat.type === vscode.FileType.Directory;
-              this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: isDir });
-            } catch {
-              this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: false });
+      watcher.onDidCreate(async (uri) => {
+        const filePath = this.relativePath(uri);
+        if (filePath && !filePath.includes('.git') && !filePath.includes('node_modules')) {
+          try {
+            const stat = await vscode.workspace.fs.stat(uri);
+            const isDir = stat.type === vscode.FileType.Directory;
+            let content: string | undefined = undefined;
+            if (!isDir) {
+              const openDoc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+              if (openDoc) {
+                content = openDoc.getText();
+              } else {
+                const fileData = await vscode.workspace.fs.readFile(uri);
+                content = Buffer.from(fileData).toString('utf-8');
+              }
             }
+            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: isDir, content });
+          } catch {
+            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_create', path: filePath, is_dir: false });
           }
         }
       }),
-      vscode.workspace.onDidDeleteFiles((e) => {
-        for (const file of e.files) {
-          const filePath = this.relativePath(file);
-          if (filePath) {
-            this.session.recordedEvents.push({ t: this.elapsed, type: 'file_delete', path: filePath });
-          }
+      watcher.onDidDelete((uri) => {
+        const filePath = this.relativePath(uri);
+        if (filePath && !filePath.includes('.git') && !filePath.includes('node_modules')) {
+          this.session.recordedEvents.push({ t: this.elapsed, type: 'file_delete', path: filePath });
         }
-      }),
+      })
+      // Note: FileSystemWatcher does not have onDidRename, it emits Delete then Create.
+      // We also keep the VS Code specific rename event for atomic rename tracking if they use the UI.
+    );
+
+    this.disposables.push(
       vscode.workspace.onDidRenameFiles((e) => {
         for (const file of e.files) {
           const oldPath = this.relativePath(file.oldUri);

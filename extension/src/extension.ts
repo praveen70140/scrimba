@@ -145,16 +145,36 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
       
+      let lessonDir: string | undefined;
       let wsFolder = vscode.workspace.workspaceFolders?.[0];
-      let lessonDir = wsFolder ? path.dirname(wsFolder.uri.fsPath) : undefined;
+      if (wsFolder && path.basename(wsFolder.uri.fsPath) === 'starter') {
+        lessonDir = path.dirname(wsFolder.uri.fsPath);
+      }
       
       // If triggered from tree view, use the tree item's path directly
       if (item && item.courseId && item.lessonId) {
         lessonDir = Paths.getLessonDir(item.courseId, item.lessonId);
+      } else if (!lessonDir) {
+        // Fallback to active editor's path (useful for keyboard shortcuts)
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+          const fsPath = activeEditor.document.uri.fsPath;
+          if (fsPath.includes(path.join('.scrimba', 'courses'))) {
+            // Traverse up to find the lesson-xxx directory
+            let current = path.dirname(fsPath);
+            while (current.includes('lesson-')) {
+              if (path.basename(current).startsWith('lesson-')) {
+                lessonDir = current;
+                break;
+              }
+              current = path.dirname(current);
+            }
+          }
+        }
       }
 
       if (!lessonDir) {
-        vscode.window.showErrorMessage('Open a lesson workspace first before recording, or start it from the My Courses view.');
+        vscode.window.showErrorMessage('Open a lesson workspace or file first before recording, or start it from the My Courses view.');
         return;
       }
       
@@ -208,13 +228,29 @@ export async function activate(context: vscode.ExtensionContext) {
         lessonDir = Paths.getLessonDir(item.courseId, item.lessonId);
       } else {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-          vscode.window.showErrorMessage('No lesson workspace open.');
-          return;
+        if (workspaceFolders && path.basename(workspaceFolders[0].uri.fsPath) === 'starter') {
+          lessonDir = path.dirname(workspaceFolders[0].uri.fsPath);
+        } else {
+          // Fallback to active editor's path
+          const activeEditor = vscode.window.activeTextEditor;
+          if (activeEditor) {
+            const fsPath = activeEditor.document.uri.fsPath;
+            if (fsPath.includes(path.join('.scrimba', 'courses'))) {
+              let current = path.dirname(fsPath);
+              while (current.includes('lesson-')) {
+                if (path.basename(current).startsWith('lesson-')) {
+                  lessonDir = current;
+                  break;
+                }
+                current = path.dirname(current);
+              }
+            }
+          }
         }
-        lessonDir = workspaceFolders[0].uri.fsPath;
-        if (path.basename(lessonDir) === 'starter') {
-          lessonDir = path.dirname(lessonDir);
+        
+        if (!lessonDir) {
+          vscode.window.showErrorMessage('No lesson workspace or file open.');
+          return;
         }
       }
       const scrimFile = path.join(lessonDir, 'lesson.scrim');

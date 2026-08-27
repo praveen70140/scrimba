@@ -25,7 +25,9 @@ export class StateHydrator {
         case 'file_create': {
           const path = this.cleanPath(event.path);
           if (!event.is_dir) {
-            files[path] = '';
+            if (files[path] === undefined) {
+              files[path] = event.content ?? '';
+            }
           }
           break;
         }
@@ -62,8 +64,21 @@ export class StateHydrator {
           const [startLine, startCol] = event.range[0];
           const [endLine, endCol] = event.range[1];
 
-          if (startLine < 0 || startLine >= lines.length || endLine < 0 || endLine >= lines.length) continue;
-          if (startCol < 0 || startCol > lines[startLine].length || endCol < 0 || endCol > lines[endLine].length) continue;
+          // Robust fallback: if edit is out of bounds (e.g. missing initial state), pad with newlines
+          while (lines.length <= Math.max(startLine, endLine)) {
+            lines.push('');
+          }
+          
+          if (startCol < 0 || endCol < 0) continue;
+          
+          // Pad the specific line with spaces if the column is out of bounds
+          if (startCol > lines[startLine].length) {
+            lines[startLine] = lines[startLine].padEnd(startCol, ' ');
+          }
+          if (endCol > lines[endLine].length) {
+            lines[endLine] = lines[endLine].padEnd(endCol, ' ');
+          }
+
           if (startLine > endLine || (startLine === endLine && startCol > endCol)) continue;
 
           const beforeEdit = lines.slice(0, startLine).join('\n') + (startLine > 0 ? '\n' : '') + lines[startLine].substring(0, startCol);
