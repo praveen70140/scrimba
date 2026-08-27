@@ -89,7 +89,7 @@ export class ApiClient {
   }
 
   public async getCourses(): Promise<Course[]> {
-    return this.request<Course[]>('GET', '/courses');
+    const res = await this.request<{data: Course[]}>('GET', '/courses'); return res.data;
   }
 
   public async getCourse(courseId: string): Promise<Course & { lessons: Lesson[] }> {
@@ -105,8 +105,8 @@ export class ApiClient {
     return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }
 
-  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; audio_url: string; video_url: string; timecodes_url: string }> {
-    return this.request<{ scrim_url: string; audio_url: string; video_url: string; timecodes_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
+  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; audio_url: string; video_url: string; screen_url: string }> {
+    return this.request<{ scrim_url: string; audio_url: string; video_url: string; screen_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
   }
 
   public async getUploadUrls(lessonId: string): Promise<any> {

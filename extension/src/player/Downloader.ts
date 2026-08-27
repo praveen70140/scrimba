@@ -26,7 +26,7 @@ export class Downloader {
       this.downloadFile(urls.scrim_url, path.join(cacheDir, 'lesson.scrim')),
       this.downloadFile(urls.audio_url, path.join(cacheDir, 'audio.ogg')).catch(() => console.log('No audio available')),
       this.downloadFile(urls.video_url, path.join(cacheDir, 'webcam.mp4')).catch(() => console.log('No webcam available')),
-      this.downloadFile(urls.timecodes_url, path.join(cacheDir, 'screen.mp4')).catch(() => console.log('No screen recording available'))
+      this.downloadFile(urls.screen_url, path.join(cacheDir, 'screen.mp4')).catch(() => console.log('No screen recording available'))
     ]);
 
     return cacheDir;

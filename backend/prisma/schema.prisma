@@ -50,7 +50,7 @@ model Lesson {
   published     Boolean   @default(false)
   scrim_key     String?   // R2 object key for lesson.scrim
   video_key     String?   // R2 object key for video.mp4
-  timecodes_key String?   // R2 object key for timecodes.json
+  screen_key String?   // R2 object key for timecodes.json
   created_at    DateTime  @default(now()) @db.Timestamptz
 
   progress      Progress[]

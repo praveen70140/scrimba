@@ -7,12 +7,22 @@ const coursesRouter = new Hono<Env>();
 
 // Get all published courses
 coursesRouter.get('/', async (c) => {
-  const courses = await db.course.findMany({
-    where: { published: true },
-    include: { author: { select: { username: true } } },
-    orderBy: { created_at: 'desc' }
-  });
-  return c.json(courses);
+  const page = parseInt(c.req.query('page') || '1');
+  const limit = parseInt(c.req.query('limit') || '50');
+  const skip = (page - 1) * limit;
+
+  const [courses, total] = await Promise.all([
+    db.course.findMany({
+      where: { published: true },
+      include: { author: { select: { username: true } } },
+      orderBy: { created_at: 'desc' },
+      skip,
+      take: limit
+    }),
+    db.course.count({ where: { published: true } })
+  ]);
+
+  return c.json({ data: courses, meta: { page, limit, total } });
 });
 
 // Create a new course (requires auth)
@@ -40,14 +50,33 @@ coursesRouter.post('/', authMiddleware, async (c) => {
 // Get a specific course
 coursesRouter.get('/:id', async (c) => {
   const id = c.req.param('id');
-  const course = await db.course.findFirst({
-    where: { id, published: true },
+  const course = await db.course.findUnique({
+    where: { id },
     include: { lessons: { orderBy: { order_index: 'asc' } } }
   });
 
   if (!course) {
     return c.json({ error: 'Course not found' }, 404);
   }
+
+  // If published, it's visible. If not published, check if user is author.
+  if (!course.published) {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) return c.json({ error: 'Course not found' }, 404);
+    
+    try {
+      const jwt = require('jsonwebtoken');
+      const token = authHeader.substring(7);
+      const secret = process.env.JWT_SECRET;
+      const payload = jwt.verify(token, secret) as any;
+      if (payload.sub !== course.author_id) {
+        return c.json({ error: 'Course not found' }, 404);
+      }
+    } catch {
+      return c.json({ error: 'Course not found' }, 404);
+    }
+  }
+
   return c.json(course);
 });
 
@@ -93,4 +122,58 @@ coursesRouter.post('/:id/lessons', authMiddleware, async (c) => {
   });
 
   return c.json(lesson, 201);
+});
+
+// Update a course
+coursesRouter.put('/:id', authMiddleware, async (c) => {
+  const courseId = c.req.param('id');
+  const user = c.get('user');
+  const { title, description, tags, level, published } = await c.req.json();
+
+  const course = await db.course.findUnique({ where: { id: courseId } });
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+  if (course.author_id !== user.sub) return c.json({ error: 'Forbidden' }, 403);
+
+  const updated = await db.course.update({
+    where: { id: courseId },
+    data: { title, description, tags, level, published }
+  });
+  return c.json(updated);
+});
+
+// Delete a course
+coursesRouter.delete('/:id', authMiddleware, async (c) => {
+  const courseId = c.req.param('id');
+  const user = c.get('user');
+
+  const course = await db.course.findUnique({ where: { id: courseId } });
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+  if (course.author_id !== user.sub) return c.json({ error: 'Forbidden' }, 403);
+
+  await db.course.delete({ where: { id: courseId } });
+  return c.json({ success: true });
+});
+
+// Reorder lessons
+coursesRouter.put('/:id/lessons/order', authMiddleware, async (c) => {
+  const courseId = c.req.param('id');
+  const user = c.get('user');
+  const { lessonIds } = await c.req.json(); // Array of lesson IDs in new order
+
+  const course = await db.course.findUnique({ where: { id: courseId } });
+  if (!course) return c.json({ error: 'Course not found' }, 404);
+  if (course.author_id !== user.sub) return c.json({ error: 'Forbidden' }, 403);
+
+  if (!Array.isArray(lessonIds)) return c.json({ error: 'lessonIds must be an array' }, 400);
+
+  await db.$transaction(
+    lessonIds.map((id: string, index: number) =>
+      db.lesson.update({
+        where: { id },
+        data: { order_index: index }
+      })
+    )
+  );
+
+  return c.json({ success: true });
 });

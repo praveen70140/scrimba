@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, Context, Next } from 'hono';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { db } from '../db';
@@ -12,7 +12,21 @@ const getJwtSecret = () => {
   return secret;
 };
 
-authRouter.post('/register', async (c) => {
+const rateLimitMap = new Map<string, { count: number, resetAt: number }>();
+const rateLimitMiddleware = async (c: Context, next: Next) => {
+  const ip = c.req.header('x-forwarded-for') || 'unknown';
+  const now = Date.now();
+  let record = rateLimitMap.get(ip);
+  if (!record || record.resetAt < now) {
+    record = { count: 0, resetAt: now + 60000 };
+  }
+  record.count++;
+  rateLimitMap.set(ip, record);
+  if (record.count > 10) return c.json({ error: 'Too many requests' }, 429);
+  await next();
+};
+
+authRouter.post('/register', rateLimitMiddleware, async (c) => {
   const { email, username, password } = await c.req.json();
   
   if (!email || !username || !password) {
@@ -38,7 +52,7 @@ authRouter.post('/register', async (c) => {
   return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });
 
-authRouter.post('/login', async (c) => {
+authRouter.post('/login', rateLimitMiddleware, async (c) => {
   const { email, password } = await c.req.json();
   
   if (!email || !password) {
@@ -57,3 +71,14 @@ authRouter.post('/login', async (c) => {
 });
 
 export { authRouter };
+
+import { authMiddleware } from '../middleware/auth';
+authRouter.get('/me', authMiddleware, async (c) => {
+  const user = c.get('user');
+  const dbUser = await db.user.findUnique({
+    where: { id: user.sub },
+    select: { id: true, email: true, username: true, role: true }
+  });
+  if (!dbUser) return c.json({ error: 'User not found' }, 404);
+  return c.json(dbUser);
+});

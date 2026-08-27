@@ -448,7 +448,7 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
           await uploadFile(path.join(lessonDir, 'webcam.mp4'), urls.video_url);
 
           progress.report({ message: 'Uploading screen recording...' });
-          await uploadFile(path.join(lessonDir, 'screen.mp4'), urls.timecodes_url); // Wait, backend uses timecodes_key for screen.mp4 now
+          await uploadFile(path.join(lessonDir, 'screen.mp4'), urls.screen_url);
 
           progress.report({ message: 'Marking as published...' });
           await apiClient.publishLesson(lessonId);
