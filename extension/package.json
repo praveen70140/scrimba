@@ -10,9 +10,18 @@
     "vscode": "^1.80.0"
   },
   "activationEvents": [
-    "*"
+    "onView:scrim.catalog",
+    "onView:scrim.myCourses",
+    "onView:scrim.myLearning",
+    "onView:scrim.myForks"
   ],
   "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node"
+  },
   "contributes": {
     "commands": [
       {
@@ -55,7 +64,6 @@
         "title": "Scrim: Stop Recording",
         "icon": "$(stop)"
       },
-
       {
         "command": "scrim.markChapter",
         "title": "Scrim: Mark Chapter Here"
@@ -191,10 +199,26 @@
     },
     "views": {
       "scrim-sidebar": [
-        { "id": "scrim.catalog", "name": "Course Catalog", "type": "tree" },
-        { "id": "scrim.myLearning", "name": "My Learning", "type": "tree" },
-        { "id": "scrim.myCourses", "name": "My Courses (Teacher)", "type": "tree" },
-        { "id": "scrim.myForks", "name": "My Forks", "type": "tree" }
+        {
+          "id": "scrim.catalog",
+          "name": "Course Catalog",
+          "type": "tree"
+        },
+        {
+          "id": "scrim.myLearning",
+          "name": "My Learning",
+          "type": "tree"
+        },
+        {
+          "id": "scrim.myCourses",
+          "name": "My Courses (Teacher)",
+          "type": "tree"
+        },
+        {
+          "id": "scrim.myForks",
+          "name": "My Forks",
+          "type": "tree"
+        }
       ]
     },
     "configuration": {
@@ -213,8 +237,9 @@
     "node-pty": "^1.1.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.80.0",
     "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.0.0"
   }
 }
