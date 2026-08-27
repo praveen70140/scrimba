@@ -104,6 +104,37 @@ export async function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`Created course: ${title}`);
     }),
 
+    vscode.commands.registerCommand('scrim.renameCourse', async (item?: any) => {
+      if (!item || !item.courseId) return;
+      const title = await vscode.window.showInputBox({ prompt: 'New course title', value: item.label });
+      if (!title) return;
+      
+      const fs = require('fs/promises') as typeof import('fs/promises');
+      const metaPath = path.join(Paths.getCourseDir(item.courseId), 'course.json');
+      try {
+        const data = JSON.parse(await fs.readFile(metaPath, 'utf8'));
+        data.title = title;
+        await fs.writeFile(metaPath, JSON.stringify(data, null, 2));
+        myCoursesProvider.refresh();
+      } catch (e: any) {
+        if (e.code === 'ENOENT') {
+          vscode.window.showErrorMessage('Failed to rename: metadata file course.json is missing.');
+        } else {
+          vscode.window.showErrorMessage(`Failed to rename course: ${e.message}`);
+        }
+      }
+    }),
+
+    vscode.commands.registerCommand('scrim.deleteCourse', async (item?: any) => {
+      if (!item || !item.courseId) return;
+      const confirm = await vscode.window.showWarningMessage(`Are you sure you want to delete course ${item.label}?`, { modal: true }, 'Yes');
+      if (confirm === 'Yes') {
+        const fs = require('fs/promises') as typeof import('fs/promises');
+        await fs.rm(Paths.getCourseDir(item.courseId), { recursive: true, force: true });
+        myCoursesProvider.refresh();
+      }
+    }),
+
     // ── Lessons & Recording ──────────────────────────────────────────────────
     vscode.commands.registerCommand('scrim.newLesson', async (item?: any) => {
       let courseId = item?.courseId;
@@ -146,6 +177,37 @@ export async function activate(context: vscode.ExtensionContext) {
         forceNewWindow: false,
         filesToOpen: [starterFile],
       });
+    }),
+
+    vscode.commands.registerCommand('scrim.renameLesson', async (item?: any) => {
+      if (!item || !item.courseId || !item.lessonId) return;
+      const title = await vscode.window.showInputBox({ prompt: 'New lesson title', value: item.label });
+      if (!title) return;
+      
+      const fs = require('fs/promises') as typeof import('fs/promises');
+      const metaPath = path.join(Paths.getLessonDir(item.courseId, item.lessonId), 'lesson.json');
+      try {
+        const data = JSON.parse(await fs.readFile(metaPath, 'utf8'));
+        data.title = title;
+        await fs.writeFile(metaPath, JSON.stringify(data, null, 2));
+        myCoursesProvider.refresh();
+      } catch (e: any) {
+        if (e.code === 'ENOENT') {
+          vscode.window.showErrorMessage('Failed to rename: metadata file lesson.json is missing.');
+        } else {
+          vscode.window.showErrorMessage(`Failed to rename lesson: ${e.message}`);
+        }
+      }
+    }),
+
+    vscode.commands.registerCommand('scrim.deleteLesson', async (item?: any) => {
+      if (!item || !item.courseId || !item.lessonId) return;
+      const confirm = await vscode.window.showWarningMessage(`Are you sure you want to delete lesson ${item.label}?`, { modal: true }, 'Yes');
+      if (confirm === 'Yes') {
+        const fs = require('fs/promises') as typeof import('fs/promises');
+        await fs.rm(Paths.getLessonDir(item.courseId, item.lessonId), { recursive: true, force: true });
+        myCoursesProvider.refresh();
+      }
     }),
 
 
@@ -273,10 +335,9 @@ export async function activate(context: vscode.ExtensionContext) {
         const webmPath = path.join(lessonDir, 'screen.webm');
         const mp4Path = path.join(lessonDir, 'screen.mp4');
         if (require('fs').existsSync(webmPath)) {
-            try {
-                await FfmpegConverter.convertToMp4(webmPath, mp4Path);
-            } catch (err) {
-                console.error("FFMPEG transcoding failed:", err);
+            if (!require('fs').existsSync(mp4Path)) {
+              vscode.window.showWarningMessage('Screen recording is still being transcoded. Please try again in a few moments.');
+              return;
             }
         }
 
@@ -286,8 +347,111 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
-    vscode.commands.registerCommand('scrim.publishLesson', async () => {
-      vscode.window.showInformationMessage('Publishing lesson (mocked)');
+    vscode.commands.registerCommand('scrim.publishLesson', async (item?: any) => {
+      let lessonDir: string | undefined;
+      let lessonId: string | undefined;
+
+      if (item && item.courseId && item.lessonId) {
+        lessonDir = Paths.getLessonDir(item.courseId, item.lessonId);
+        lessonId = item.lessonId;
+      } else {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+          const fsPath = activeEditor.document.uri.fsPath;
+          let current = path.dirname(fsPath);
+          while (current.includes('lesson-')) {
+            if (path.basename(current).startsWith('lesson-')) {
+              lessonDir = current;
+              lessonId = path.basename(current);
+              break;
+            }
+            current = path.dirname(current);
+          }
+        }
+      }
+
+      if (!lessonDir || !lessonId) {
+        vscode.window.showErrorMessage('Please right click a lesson in the My Courses view to publish.');
+        return;
+      }
+
+      vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: "Publishing lesson...",
+        cancellable: false
+      }, async (progress) => {
+        try {
+          progress.report({ message: 'Getting upload URLs...' });
+          const urls = await apiClient.getUploadUrls(lessonId);
+
+          const fs = require('fs') as typeof import('fs');
+          const https = require('https');
+          const http = require('http');
+
+          const uploadFile = (filePath: string, urlStr: string) => {
+            return new Promise<void>((resolve, reject) => {
+              if (!fs.existsSync(filePath)) {
+                console.log(`Skipping missing file: ${filePath}`);
+                resolve();
+                return;
+              }
+              const stats = fs.statSync(filePath);
+              const url = new URL(urlStr);
+              const lib = url.protocol === 'https:' ? https : http;
+              
+              const req = lib.request(url, {
+                method: 'PUT',
+                headers: {
+                  'Content-Length': stats.size,
+                },
+                timeout: 60000 // 60 seconds
+              }, (res: any) => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                  resolve();
+                } else {
+                  reject(new Error(`Failed to upload ${filePath}: ${res.statusCode}`));
+                }
+              });
+
+              req.on('timeout', () => {
+                req.destroy();
+                reject(new Error(`Upload timed out for ${filePath}`));
+              });
+
+              req.on('error', (err: any) => {
+                reject(err);
+              });
+
+              const stream = fs.createReadStream(filePath);
+              stream.on('error', (err: any) => {
+                req.destroy();
+                reject(err);
+              });
+
+              stream.pipe(req);
+            });
+          };
+
+          progress.report({ message: 'Uploading lesson.scrim...' });
+          await uploadFile(path.join(lessonDir, 'lesson.scrim'), urls.scrim_url);
+
+          progress.report({ message: 'Uploading audio...' });
+          await uploadFile(path.join(lessonDir, 'audio.ogg'), urls.audio_url);
+
+          progress.report({ message: 'Uploading webcam video...' });
+          await uploadFile(path.join(lessonDir, 'webcam.mp4'), urls.video_url);
+
+          progress.report({ message: 'Uploading screen recording...' });
+          await uploadFile(path.join(lessonDir, 'screen.mp4'), urls.timecodes_url); // Wait, backend uses timecodes_key for screen.mp4 now
+
+          progress.report({ message: 'Marking as published...' });
+          await apiClient.publishLesson(lessonId);
+
+          vscode.window.showInformationMessage('Lesson published successfully!');
+        } catch (e: any) {
+          vscode.window.showErrorMessage('Failed to publish lesson: ' + e.message);
+        }
+      });
     })
   );
 }

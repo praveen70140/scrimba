@@ -17,9 +17,29 @@
         "icon": "$(add)"
       },
       {
+        "command": "scrim.renameCourse",
+        "title": "Scrim: Rename Course",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "scrim.deleteCourse",
+        "title": "Scrim: Delete Course",
+        "icon": "$(trash)"
+      },
+      {
         "command": "scrim.newLesson",
         "title": "Scrim: New Lesson",
         "icon": "$(add)"
+      },
+      {
+        "command": "scrim.renameLesson",
+        "title": "Scrim: Rename Lesson",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "scrim.deleteLesson",
+        "title": "Scrim: Delete Lesson",
+        "icon": "$(trash)"
       },
       {
         "command": "scrim.startRecording",
@@ -90,6 +110,16 @@
           "group": "inline"
         },
         {
+          "command": "scrim.renameCourse",
+          "when": "view == scrim.myCourses && viewItem == course",
+          "group": "1_modification"
+        },
+        {
+          "command": "scrim.deleteCourse",
+          "when": "view == scrim.myCourses && viewItem == course",
+          "group": "1_modification"
+        },
+        {
           "command": "scrim.startRecording",
           "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "inline"
@@ -98,6 +128,21 @@
           "command": "scrim.previewLesson",
           "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "inline"
+        },
+        {
+          "command": "scrim.publishLesson",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        },
+        {
+          "command": "scrim.renameLesson",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "1_modification"
+        },
+        {
+          "command": "scrim.deleteLesson",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "1_modification"
         }
       ]
     },

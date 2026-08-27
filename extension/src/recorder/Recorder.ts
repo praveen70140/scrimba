@@ -151,11 +151,13 @@ export class Recorder {
 
     const lessonId = this.session.lessonMeta?.id || path.basename(this.lessonDir) || 'unknown';
     const lessonTitle = this.session.lessonMeta?.title || lessonId;
+    const courseId = path.basename(path.dirname(this.lessonDir));
 
     await ScrimWriter.write(path.join(this.lessonDir, 'lesson.scrim'), {
       version: 2,
       meta: {
         id: lessonId,
+        courseId: courseId,
         title: lessonTitle,
         duration_ms: duration,
         language_hint: 'javascript',
@@ -172,6 +174,15 @@ export class Recorder {
 
     this.statusBar.text = '🟢 Done';
     setTimeout(() => this.statusBar.hide(), 3000);
+
+    if ((this as any).screenStarted) {
+      const webmPath = path.join(this.lessonDir, 'screen.webm');
+      const mp4Path = path.join(this.lessonDir, 'screen.mp4');
+      const { FfmpegConverter } = require('../utils/FfmpegConverter');
+      FfmpegConverter.startBackgroundTranscode(webmPath, mp4Path).catch((e: any) => {
+        console.error('Failed to transcode screen.webm in background:', e);
+      });
+    }
 
     return allEvents;
   }

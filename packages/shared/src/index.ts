@@ -88,6 +88,7 @@ export const LessonScrimSchema = z.object({
   version: z.number().int(),
   meta: z.object({
     id: z.string(),
+    courseId: z.string().optional(),
     title: z.string(),
     duration_ms: z.number().int().optional(),
     language_hint: z.string().optional(),

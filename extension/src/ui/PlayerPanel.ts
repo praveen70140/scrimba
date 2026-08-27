@@ -30,7 +30,7 @@ export class PlayerPanel {
           try {
             const meta = JSON.parse(await fs.readFile(path.join(forksDir, f.name, '.fork-meta.json'), 'utf-8'));
             if (typeof meta.timestamp_ms === 'number' && Number.isFinite(meta.timestamp_ms)) {
-              forks.push({ t: meta.timestamp_ms, label: meta.label || f.name });
+              forks.push({ id: f.name, t: meta.timestamp_ms, label: meta.label || f.name });
             }
           } catch {}
         }
@@ -71,6 +71,11 @@ export class PlayerPanel {
         case 'timeupdate':
           this.session.currentTimeMs = message.timeMs;
           break;
+        case 'openFork': {
+          const forkPath = path.join(Paths.getForksDir(this.session.lessonMeta.id), message.forkId);
+          vscode.commands.executeCommand('scrim.openFork', vscode.Uri.file(forkPath));
+          break;
+        }
       }
     });
 
@@ -110,8 +115,8 @@ export class PlayerPanel {
     const serializeForInlineScript = (value: unknown): string =>
       JSON.stringify(value)
         .replace(/</g, '\\u003c')
-        .replace(/\\u2028/g, '\\u2028')
-        .replace(/\\u2029/g, '\\u2029');
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
 
     return `
       <!DOCTYPE html>
@@ -144,8 +149,9 @@ export class PlayerPanel {
           .marker.fork { width: 8px; height: 8px; background: #9b59b6; border-radius: 50%; }
 
           /* Tooltip */
-          .tooltip { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; border: 1px solid rgba(255,255,255,0.1); }
-          .marker:hover .tooltip { opacity: 1; }
+          .tooltip { position: absolute; bottom: 100%; margin-bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; border: 1px solid rgba(255,255,255,0.1); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+          .tooltip::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 12px; background: transparent; }
+          .marker:hover .tooltip, .tooltip:hover { opacity: 1; pointer-events: auto; }
           
           /* Control Buttons */
           .controls-row { display: flex; align-items: center; justify-content: space-between; }
@@ -256,7 +262,7 @@ export class PlayerPanel {
           }
 
           // Initialize markers
-          function addMarker(arr, cls, getLabel, getTime = item => item.t - startTimeMs) {
+          function addMarker(arr, cls, getLabel, getTime) {
             arr.forEach(item => {
               const t = getTime(item);
               if (t < 0 || t > durationMs) return;
@@ -267,16 +273,18 @@ export class PlayerPanel {
               
               const tt = document.createElement('div');
               tt.className = 'tooltip';
-              tt.innerText = getLabel(item);
+              tt.innerHTML = getLabel(item);
               el.appendChild(tt);
               
               el.onclick = (e) => { e.stopPropagation(); seekToTime(t); };
               track.appendChild(el);
             });
           }
-          addMarker(chapters, 'chapter', c => 'Chapter: ' + c.title);
-          addMarker(challenges, 'challenge', c => 'Challenge: ' + c.prompt);
-          addMarker(forks, 'fork', f => 'Fork: ' + f.label);
+          addMarker(chapters, 'chapter', c => 'Chapter: ' + c.title, c => c.t);
+          addMarker(challenges, 'challenge', c => 'Challenge: ' + c.prompt, c => c.t);
+          addMarker(forks, 'fork', f => {
+            return '<span>Fork: ' + f.label + '</span><button onclick="event.stopPropagation(); vscode.postMessage({command: \\'openFork\\', forkId: \\'' + f.id + '\\'})" style="padding: 4px 8px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Open in code editor</button>';
+          }, f => f.t - startTimeMs);
 
           function updateTimeUI() {
             const relTimeMs = vid.currentTime * 1000;
@@ -358,6 +366,8 @@ export class PlayerPanel {
 
           // Keyboard shortcuts
           window.addEventListener('keydown', (e) => {
+            const tag = (e.target && (e.target as any).tagName) || '';
+            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
             if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
             else if (e.code === 'ArrowLeft') seekToTime(vid.currentTime*1000 - 5000);
             else if (e.code === 'ArrowRight') seekToTime(vid.currentTime*1000 + 5000);

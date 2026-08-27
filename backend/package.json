@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1119.0",
+    "@aws-sdk/s3-request-presigner": "^3.1119.0",
     "@prisma/client": "^5.10.2",
     "@scrimba-clone/shared": "workspace:*",
     "bcryptjs": "^3.0.3",

@@ -26,7 +26,7 @@ export class ApiClient {
   }
 
   // Helper to bypass VS Code's proxy-patched fetch
-  private request<T>(method: string, path: string, body?: any): Promise<T> {
+  private request<T>(method: string, path: string, body?: any, requiresSession = true): Promise<T> {
     return new Promise((resolve, reject) => {
       const url = new URL(`${this.baseUrl}${path}`);
       const lib = url.protocol === 'https:' ? https : http;
@@ -56,6 +56,10 @@ export class ApiClient {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             try { resolve(data ? JSON.parse(data) : null); }
             catch (e) { reject(new Error('Invalid JSON response')); }
+          } else if (res.statusCode === 401 && requiresSession) {
+            vscode.window.showErrorMessage('Session expired. Please log in again.');
+            vscode.commands.executeCommand('scrim.login');
+            reject(new Error(`API Error: 401 Unauthorized`));
           } else {
             reject(new Error(`API Error: ${res.statusCode} ${res.statusMessage}`));
           }
@@ -77,11 +81,11 @@ export class ApiClient {
   }
 
   public async login(email: string, password: string): Promise<{ token: string; user: any }> {
-    return this.request<{ token: string; user: any }>('POST', '/auth/login', { email, password });
+    return this.request<{ token: string; user: any }>('POST', '/auth/login', { email, password }, false);
   }
 
   public async register(email: string, username: string, password: string): Promise<{ token: string; user: any }> {
-    return this.request<{ token: string; user: any }>('POST', '/auth/register', { email, username, password });
+    return this.request<{ token: string; user: any }>('POST', '/auth/register', { email, username, password }, false);
   }
 
   public async getCourses(): Promise<Course[]> {
@@ -101,8 +105,8 @@ export class ApiClient {
     return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }
 
-  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; video_url: string; timecodes_url: string }> {
-    return this.request<{ scrim_url: string; video_url: string; timecodes_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
+  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; audio_url: string; video_url: string; timecodes_url: string }> {
+    return this.request<{ scrim_url: string; audio_url: string; video_url: string; timecodes_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
   }
 
   public async getUploadUrls(lessonId: string): Promise<any> {

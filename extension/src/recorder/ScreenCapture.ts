@@ -40,7 +40,7 @@ export class ScreenCapture {
           res.writeHead(200);
           res.end('ok');
           // Browser explicitly stopped recording
-          vscode.commands.executeCommand('scrimba.stopRecording');
+          vscode.commands.executeCommand('scrim.stopRecording');
         } else if (req.method === 'POST' && req.url === '/started') {
           res.writeHead(200);
           res.end('ok');

@@ -38,7 +38,7 @@ export class Player implements vscode.Disposable {
     this.session.initialFiles = data.workspace.files;
     this.session.lessonMeta = {
       id: data.meta.id,
-      courseId: '', // Course ID might not be in scrim directly
+      courseId: data.meta.courseId || '',
       title: data.meta.title,
       durationMs: data.meta.duration_ms || 0,
       screenStartMs: data.media?.screen?.start_time_ms

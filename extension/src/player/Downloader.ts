@@ -20,17 +20,14 @@ export class Downloader {
     const cacheDir = path.join(Paths.getBaseDir(), 'cache', lessonId);
     await fs.mkdir(cacheDir, { recursive: true });
 
-    // In a real app, this would get actual presigned URLs.
-    // For now we get the stub URLs from the API.
     const urls = await this.apiClient.getDownloadUrls(lessonId);
     
-    // In our local testing setup without a real S3 yet, we might not have valid URLs.
-    // We'll simulate download success for now.
-    // To implement real downloads:
-    // await this.downloadFile(urls.scrim_url, path.join(cacheDir, 'lesson.scrim'));
-    // await this.downloadFile(urls.audio_url, path.join(cacheDir, 'audio.ogg'));
-    // await this.downloadFile(urls.video_url, path.join(cacheDir, 'webcam.mp4'));
-    // await this.downloadFile(urls.timecodes_url, path.join(cacheDir, 'browser-preview.mp4'));
+    await Promise.all([
+      this.downloadFile(urls.scrim_url, path.join(cacheDir, 'lesson.scrim')),
+      this.downloadFile(urls.audio_url, path.join(cacheDir, 'audio.ogg')).catch(() => console.log('No audio available')),
+      this.downloadFile(urls.video_url, path.join(cacheDir, 'webcam.mp4')).catch(() => console.log('No webcam available')),
+      this.downloadFile(urls.timecodes_url, path.join(cacheDir, 'screen.mp4')).catch(() => console.log('No screen recording available'))
+    ]);
 
     return cacheDir;
   }
@@ -44,11 +41,16 @@ export class Downloader {
           reject(new Error(`Failed to download ${urlStr}: ${res.statusCode}`));
           return;
         }
-        // const fileStream = require('fs').createWriteStream(destPath);
-        // res.pipe(fileStream);
-        // fileStream.on('finish', resolve);
-        // fileStream.on('error', reject);
-        resolve(); // Stub
+        const fileStream = require('fs').createWriteStream(destPath);
+        res.pipe(fileStream);
+        fileStream.on('finish', () => {
+          fileStream.close();
+          resolve();
+        });
+        fileStream.on('error', (err: any) => {
+          require('fs').unlink(destPath, () => {});
+          reject(err);
+        });
       }).on('error', reject);
     });
   }
