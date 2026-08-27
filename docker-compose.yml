@@ -3,28 +3,35 @@ version: '3.8'
 services:
   db:
     image: postgres:15-alpine
-    container_name: scrimba_db
-    env_file:
-      - .env.docker
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: scrimba
     ports:
-      - "127.0.0.1:5432:5432"
+      - "5432:5432"
     volumes:
-      - scrimba_pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
 
-  minio:
-    image: minio/minio
-    container_name: scrimba_minio
-    env_file:
-      - .env.docker
-    command: server /data --console-address ":9001"
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgresql://postgres:password@db:5432/scrimba?schema=public
+      - JWT_SECRET=supersecret123
+      # You can pass your AWS credentials via a local .env file or export them in your shell
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-my-scrimba-bucket}
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
-    volumes:
-      - scrimba_miniodata:/data
-    restart: unless-stopped
+      - "4000:4000"
+    depends_on:
+      - db
+    # Run prisma db push to ensure the schema exists, then start the server
+    command: >
+      sh -c "bunx prisma db push && bun run src/index.ts"
 
 volumes:
-  scrimba_pgdata:
-  scrimba_miniodata:
+  postgres_data:
