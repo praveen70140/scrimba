@@ -101,6 +101,18 @@ export class ApiClient {
     return course.lessons;
   }
 
+  public async deleteCourse(courseId: string): Promise<void> {
+    await this.request('DELETE', `/courses/${courseId}`);
+  }
+
+  public async createCourse(title: string): Promise<any> {
+    return this.request('POST', '/courses', { title });
+  }
+
+  public async createLesson(courseId: string, title: string): Promise<any> {
+    return this.request('POST', `/courses/${courseId}/lessons`, { title });
+  }
+
   public async enroll(courseId: string): Promise<void> {
     return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }

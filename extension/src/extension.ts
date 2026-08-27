@@ -101,10 +101,16 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('scrim.newCourse', async () => {
       const title = await vscode.window.showInputBox({ prompt: 'Course title', placeHolder: 'e.g. Intro to TypeScript' });
       if (!title) { return; }
-      const courseId = 'course-' + Date.now();
-      await WorkspaceManager.initCourse(courseId, { id: courseId, title });
-      myCoursesProvider.refresh();
-      vscode.window.showInformationMessage(`Created course: ${title}`);
+      
+      try {
+        const created = await apiClient.createCourse(title);
+        const courseId = created.id;
+        await WorkspaceManager.initCourse(courseId, { id: courseId, title });
+        myCoursesProvider.refresh();
+        vscode.window.showInformationMessage(`Created course: ${title}`);
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Failed to create course on server: ${e.message}`);
+      }
     }),
 
     vscode.commands.registerCommand('scrim.renameCourse', async (item?: any) => {
@@ -175,7 +181,15 @@ export async function activate(context: vscode.ExtensionContext) {
       const languageHint = templateName;
       const runtimeHint = templateName;
 
-      const lessonId = `lesson-${Date.now()}`;
+      let lessonId: string;
+      try {
+        const created = await apiClient.createLesson(courseId, title);
+        lessonId = created.id;
+      } catch (e: any) {
+        vscode.window.showErrorMessage(`Failed to create lesson on server: ${e.message}`);
+        return;
+      }
+
       session.lessonMeta = { id: lessonId, title, courseId, durationMs: 0 };
       
       const starterUri = await WorkspaceManager.createStarterWorkspace(courseId, lessonId);
