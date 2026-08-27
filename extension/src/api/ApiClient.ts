@@ -26,7 +26,7 @@ export class ApiClient {
   }
 
   // Helper to bypass VS Code's proxy-patched fetch
-  private request<T>(method: string, path: string, body?: any, requiresSession = true): Promise<T> {
+  public request<T = any>(method: string, path: string, body?: any, requiresSession = true): Promise<T> {
     return new Promise((resolve, reject) => {
       const url = new URL(`${this.baseUrl}${path}`);
       const lib = url.protocol === 'https:' ? https : http;

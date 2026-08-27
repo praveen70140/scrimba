@@ -185,18 +185,20 @@ export async function activate(context: vscode.ExtensionContext) {
       await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title, languageHint, runtimeHint }, null, 2), 'utf-8'));
 
       const templateDir = path.join(templatesDir, templateName);
+      let filesToOpen: vscode.Uri[] = [];
       if (fs.existsSync(templateDir)) {
         await vscode.workspace.fs.copy(vscode.Uri.file(templateDir), starterUri, { overwrite: true });
       } else {
         const starterFile = vscode.Uri.joinPath(starterUri, 'index.js');
         await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
+        filesToOpen.push(starterFile);
       }
       
       myCoursesProvider.refresh();
       
       await vscode.commands.executeCommand('vscode.openFolder', starterUri, {
         forceNewWindow: false,
-        filesToOpen: [starterFile],
+        filesToOpen,
       });
     }),
 
@@ -246,7 +248,7 @@ export async function activate(context: vscode.ExtensionContext) {
           // Set media base dir so PlayerPanel can serve media from cache
           session.lessonDir = cacheDir; 
           
-          playerPanel.show(cacheDir, []); // Pass empty forks or load forks if we want
+          playerPanel.show(cacheDir); // Pass empty forks or load forks if we want
           player.play();
         });
       } catch (e: any) {

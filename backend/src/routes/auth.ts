@@ -4,7 +4,7 @@ import * as jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { JwtPayload } from '../middleware/auth';
 
-const authRouter = new Hono();
+const authRouter = new Hono<{ Variables: { user: JwtPayload } }>();
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;

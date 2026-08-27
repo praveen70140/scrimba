@@ -80,8 +80,6 @@ coursesRouter.get('/:id', async (c) => {
   return c.json(course);
 });
 
-export { coursesRouter };
-
 // Create a new lesson in a course
 coursesRouter.post('/:id/lessons', authMiddleware, async (c) => {
   const courseId = c.req.param('id');
@@ -112,7 +110,7 @@ coursesRouter.post('/:id/lessons', authMiddleware, async (c) => {
 
     return tx.lesson.create({
       data: {
-        course_id: courseId,
+        course_id: courseId as string,
         title,
         order_index: next_order,
       }
@@ -177,3 +175,5 @@ coursesRouter.put('/:id/lessons/order', authMiddleware, async (c) => {
 
   return c.json({ success: true });
 });
+
+export { coursesRouter };
