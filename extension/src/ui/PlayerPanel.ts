@@ -104,6 +104,8 @@ export class PlayerPanel {
 
   private getHtml(port: number, lessonDir: string, forks: any[]): string {
     const videoUri = `http://127.0.0.1:${port}/screen.mp4?t=${Date.now()}`;
+    const audioUri = `http://127.0.0.1:${port}/audio.ogg?t=${Date.now()}`;
+    const webcamUri = `http://127.0.0.1:${port}/webcam.mp4?t=${Date.now()}`;
     const cspSource = this.panel!.webview.cspSource;
 
     const chapters = this.session.events.filter(e => e.type === 'chapter');
@@ -128,10 +130,12 @@ export class PlayerPanel {
           :root { --accent: #e44d26; --bg: #111; --panel: var(--vscode-editorWidget-background); --fg: var(--vscode-foreground); }
           body { font-family: var(--vscode-font-family); color: var(--fg); padding: 0; margin: 0; background: black; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
           .video-container { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--bg); position: relative; }
-          video { width: 100%; height: 100%; object-fit: contain; outline: none; }
+          video#vid { width: 100%; height: 100%; object-fit: contain; outline: none; }
+          video#webcam { position: absolute; bottom: 80px; right: 20px; width: 240px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; background: #000; pointer-events: none; }
+          audio { display: none; }
           
           /* Controls Overlay */
-          .controls-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 10px 20px; opacity: 0; transition: opacity 0.3s; display: flex; flex-direction: column; gap: 8px; }
+          .controls-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 10px 20px; opacity: 0; transition: opacity 0.3s; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
           .video-container:hover .controls-overlay, .controls-overlay.active { opacity: 1; }
           
           /* Timeline */
@@ -181,6 +185,8 @@ export class PlayerPanel {
       <body>
         <div class="video-container" id="videoContainer">
           <video id="vid" src="${videoUri}"></video>
+          <video id="webcam" src="${webcamUri}" muted autoplay playsinline></video>
+          <audio id="audio" src="${audioUri}"></audio>
           
           <div class="center-play" id="centerPlay">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -240,6 +246,11 @@ export class PlayerPanel {
         <script>
           const vscode = acquireVsCodeApi();
           const vid = document.getElementById('vid');
+          const webcam = document.getElementById('webcam');
+          const audio = document.getElementById('audio');
+          
+          webcam.addEventListener('error', () => webcam.style.display = 'none');
+          
           const durationMs = ${duration};
           const startTimeMs = ${startTimeMs};
           const chapters = ${serializeForInlineScript(chapters)};
@@ -254,6 +265,11 @@ export class PlayerPanel {
           const pauseIcon = document.getElementById('pauseIcon');
           const centerPlay = document.getElementById('centerPlay');
           let isDragging = false;
+
+          function updateSync() {
+            if (Math.abs(webcam.currentTime - vid.currentTime) > 0.5) webcam.currentTime = vid.currentTime;
+            if (Math.abs(audio.currentTime - vid.currentTime) > 0.5) audio.currentTime = vid.currentTime;
+          }
 
           // Format mm:ss
           function fmt(ms) {
@@ -300,17 +316,22 @@ export class PlayerPanel {
             updateTimeUI();
             const absTimeMs = startTimeMs + vid.currentTime * 1000;
             vscode.postMessage({ command: 'timeupdate', timeMs: absTimeMs });
+            updateSync();
           });
 
           vid.addEventListener('play', () => {
             playIcon.style.display = 'none';
             pauseIcon.style.display = 'block';
+            webcam.play().catch(()=>{});
+            audio.play().catch(()=>{});
             vscode.postMessage({ command: 'play' });
           });
           
           vid.addEventListener('pause', () => {
             playIcon.style.display = 'block';
             pauseIcon.style.display = 'none';
+            webcam.pause();
+            audio.pause();
             vscode.postMessage({ command: 'pause' });
           });
 
@@ -321,6 +342,7 @@ export class PlayerPanel {
 
           function seekToTime(ms) {
             vid.currentTime = ms / 1000;
+            updateSync();
           }
 
           function seek(e) {
