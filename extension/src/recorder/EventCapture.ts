@@ -36,7 +36,9 @@ export class EventCapture {
   private sessionGeneration = 0;
 
   public start(context: vscode.ExtensionContext): void {
+    const wsFolders = vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath).join(', ') || 'NONE';
     console.log(`[EventCapture] Started. workspaceRoot="${this.workspaceRoot}", recordingStartMs=${this.session.recordingStartMs}`);
+    console.log(`[EventCapture] VS Code workspace folders: ${wsFolders}`);
 
     // ── Terminal events ──────────────────────────────────────────────────────
     if ((vscode.window as any).onDidWriteTerminalData) {

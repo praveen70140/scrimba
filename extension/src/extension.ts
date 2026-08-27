@@ -210,11 +210,35 @@ export async function activate(context: vscode.ExtensionContext) {
       
       myCoursesProvider.refresh();
       
-      await vscode.commands.executeCommand('vscode.openFolder', starterUri, {
-        forceNewWindow: false,
-        filesToOpen,
-      });
+      // IMPORTANT: Use updateWorkspaceFolders instead of vscode.openFolder.
+      // openFolder reloads the entire extension host in a new window context, which
+      // kills the EventCapture listeners mid-recording. updateWorkspaceFolders adds
+      // the starter dir to the current workspace WITHOUT reloading, keeping the
+      // extension host (and event listeners) alive.
+      const currentFolders = vscode.workspace.workspaceFolders || [];
+      // Remove any existing starter folders from other lessons to avoid clutter
+      const foldersToRemove = currentFolders.filter(f => 
+        f.uri.fsPath.includes(path.join('.scrimba', 'courses')) && f.uri.fsPath.endsWith('starter')
+      );
+      vscode.workspace.updateWorkspaceFolders(
+        0,
+        foldersToRemove.length,
+        { uri: starterUri, name: `${title} (starter)` }
+      );
+
+      // Open the files in the editor
+      for (const fileUri of filesToOpen) {
+        await vscode.window.showTextDocument(fileUri, { preview: false });
+      }
+      if (filesToOpen.length === 0) {
+        // Open first file from the template dir
+        const templateFiles = fs.readdirSync(starterUri.fsPath).filter((f: string) => !f.startsWith('.'));
+        if (templateFiles.length > 0) {
+          await vscode.window.showTextDocument(vscode.Uri.joinPath(starterUri, templateFiles[0]), { preview: false });
+        }
+      }
     }),
+
 
     vscode.commands.registerCommand('scrim.renameLesson', async (item?: any) => {
       if (!item || !item.courseId || !item.lessonId) return;
@@ -341,9 +365,13 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       
       let lessonDir: string | undefined;
-      let wsFolder = vscode.workspace.workspaceFolders?.[0];
-      if (wsFolder && path.basename(wsFolder.uri.fsPath) === 'starter') {
-        lessonDir = path.dirname(wsFolder.uri.fsPath);
+      // Search all workspace folders for one ending with 'starter'
+      const wsFolders = vscode.workspace.workspaceFolders || [];
+      for (const wsFolder of wsFolders) {
+        if (path.basename(wsFolder.uri.fsPath) === 'starter') {
+          lessonDir = path.dirname(wsFolder.uri.fsPath);
+          break;
+        }
       }
       
       // If triggered from tree view, use the tree item's path directly
