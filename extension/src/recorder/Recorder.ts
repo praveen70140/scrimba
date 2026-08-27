@@ -142,11 +142,11 @@ export class Recorder {
       this.eventCapture.stop(),
     ]);
 
-    this.session.isRecording = false;
     const allEvents = this.session.recordedEvents;
 
     // Write the .scrim file
     const duration = this.session.recordingElapsedMs;
+    this.session.isRecording = false;
     const starterFiles = this.initialFiles;
 
     const lessonId = this.session.lessonMeta?.id || path.basename(this.lessonDir) || 'unknown';

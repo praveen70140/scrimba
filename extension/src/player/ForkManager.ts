@@ -23,7 +23,7 @@ export class ForkManager {
     const forkId = `fork_${labelTime.replace(':', 'm')}s_${Math.random().toString(36).slice(2, 6)}`;
     
     // Calculate the codebase state exactly at the requested time
-    const virtualFiles = StateHydrator.hydrate(this.session.initialFiles, this.session.events, t);
+    const virtualFiles = StateHydrator.hydrate(this.session.initialFiles, this.session.events, relT);
 
     // Write to a real physical directory and open it
     const forkUri = await WorkspaceManager.createFork(lessonId, forkId, virtualFiles, t);

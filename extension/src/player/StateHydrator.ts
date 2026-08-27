@@ -16,8 +16,7 @@ export class StateHydrator {
     // Clone the initial state
     const files: Record<string, string> = { ...initialFiles };
 
-    // Auto-repair absolute timestamps created by the buggy EventCapture version
-    // Find the first absolute timestamp (> 1 trillion) to use as an offset
+    // 1. Find the offset for buggy absolute events
     let timeOffset = 0;
     for (const event of events) {
       if (event.t > 1000000000000) {
@@ -27,7 +26,12 @@ export class StateHydrator {
     }
 
     for (const event of events) {
-      const adjustedT = event.t > 1000000000000 ? event.t - timeOffset : event.t;
+      const isEventAbsolute = event.t > 1000000000000;
+      let adjustedT = event.t;
+      if (isEventAbsolute && timeOffset > 0) {
+        adjustedT = event.t - timeOffset;
+      }
+
       if (adjustedT > targetTimeMs) {
         continue; // Don't break, just skip, in case events are slightly out of order due to mixed timestamps
       }
