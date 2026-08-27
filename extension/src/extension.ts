@@ -25,19 +25,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const session = new ScrimSession();
   const stateManager = new StateManager(session);
-  const statusBar = new StatusBar(session, null as any, stateManager); // will fix circular dep shortly
+  const statusBar = new StatusBar(session, stateManager); // will fix circular dep shortly
   const player = new Player(context, session, stateManager);
   let recorder: Recorder | undefined;
   
   // Hack to satisfy StatusBar needing Player for time sync 
-  (statusBar as any).player = player;
-
+  
   const playerPanel = new PlayerPanel(context, session, player);
   const browserPanel = new BrowserPreviewPanel(context, session);
 
   player.setPlayerPanel(playerPanel);
 
-  const catalogProvider = new CatalogViewProvider();
+  const catalogProvider = new CatalogViewProvider(apiClient);
   const myCoursesProvider = new MyCoursesViewProvider();
   const myForksProvider = new MyForksViewProvider();
 
@@ -257,7 +256,14 @@ export async function activate(context: vscode.ExtensionContext) {
       browserPanel.showLive('http://localhost:3000');
     }),
 
-    vscode.commands.registerCommand('scrim.stopRecording', async () => {
+    
+    vscode.commands.registerCommand('scrim.resume', async () => {
+      // Resume playback after a fork or challenge
+      if (session.playerState === 'FORKED' || session.playerState === 'CHALLENGE') {
+        stateManager.transition('PLAYING');
+      }
+    }),
+vscode.commands.registerCommand('scrim.stopRecording', async () => {
       if (!session.isRecording || !recorder) return;
       await recorder.stop();
       recorder.dispose();

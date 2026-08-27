@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { ScrimSession } from '../core/ScrimSession';
-import { Player } from '../player/Player';
 import { StateManager } from '../core/StateManager';
 
 export class StatusBar implements vscode.Disposable {
@@ -10,7 +9,6 @@ export class StatusBar implements vscode.Disposable {
 
   constructor(
     private session: ScrimSession,
-    private player: Player,
     private stateManager: StateManager
   ) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);

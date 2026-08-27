@@ -4,7 +4,7 @@ import { ApiClient } from '../api/ApiClient';
 export class CatalogViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-  private apiClient = new ApiClient();
+  constructor(private apiClient: ApiClient) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
