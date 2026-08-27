@@ -174,8 +174,19 @@ export async function activate(context: vscode.ExtensionContext) {
       const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
       await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title, languageHint, runtimeHint }, null, 2), 'utf-8'));
 
-      const starterFile = vscode.Uri.joinPath(starterUri, 'index.js');
-      await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
+      const fs = require('fs') as typeof import('fs');
+      let templateName = 'node-20';
+      if (languageHint.toLowerCase().includes('python')) templateName = 'python-312';
+      else if (languageHint.toLowerCase().includes('rust')) templateName = 'rust-stable';
+      else if (languageHint.toLowerCase().includes('go')) templateName = 'go-122';
+      
+      const templateDir = path.join(__dirname, '..', 'templates', templateName);
+      if (fs.existsSync(templateDir)) {
+        await vscode.workspace.fs.copy(vscode.Uri.file(templateDir), starterUri, { overwrite: true });
+      } else {
+        const starterFile = vscode.Uri.joinPath(starterUri, 'index.js');
+        await vscode.workspace.fs.writeFile(starterFile, Buffer.from(`// ${title}\nconsole.log('Hello, world!');\n`, 'utf-8'));
+      }
       
       myCoursesProvider.refresh();
       
