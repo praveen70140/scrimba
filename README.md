@@ -53,7 +53,7 @@ The backend needs environment variables and a database schema.
 
 ### 4. Run the Backend
 
-Start the backend API in development mode (with hot-reload):
+Start the backend API locally on your host machine (outside of Docker) in development mode:
 
 ```bash
 # From the root directory:
