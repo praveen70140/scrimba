@@ -196,7 +196,10 @@ export async function activate(context: vscode.ExtensionContext) {
       
       const lessonUri = vscode.Uri.file(Paths.getLessonDir(courseId, lessonId));
       const metaUri = vscode.Uri.joinPath(lessonUri, 'lesson.json');
-      await vscode.workspace.fs.writeFile(metaUri, Buffer.from(JSON.stringify({ title, languageHint, runtimeHint }, null, 2), 'utf-8'));
+      await vscode.workspace.fs.writeFile(
+        metaUri,
+        Buffer.from(JSON.stringify({ id: lessonId, courseId, title, languageHint, runtimeHint }, null, 2), 'utf-8')
+      );
 
       const templateDir = path.join(templatesDir, templateName);
       let filesToOpen: vscode.Uri[] = [];
@@ -220,11 +223,22 @@ export async function activate(context: vscode.ExtensionContext) {
         // Multi-root: add starter alongside existing folders (no reload)
         const alreadyAdded = existingFolders.some(f => f.uri.fsPath === starterUri.fsPath);
         if (!alreadyAdded) {
-          // Remove any other scrimba starter folders first
-          const toRemove = existingFolders.filter(f =>
-            f.uri.fsPath.includes(path.join('.scrimba', 'courses')) && f.uri.fsPath.endsWith('starter')
+          // Remove any other scrimba starter folders first (highest index first)
+          const removeIndexes = existingFolders
+            .map((f, i) => ({ f, i }))
+            .filter(({ f }) =>
+              f.uri.fsPath.includes(path.join('.scrimba', 'courses')) && f.uri.fsPath.endsWith('starter')
+            )
+            .map(({ i }) => i)
+            .reverse();
+          for (const idx of removeIndexes) {
+            vscode.workspace.updateWorkspaceFolders(idx, 1);
+          }
+          vscode.workspace.updateWorkspaceFolders(
+            vscode.workspace.workspaceFolders?.length ?? 0,
+            0,
+            { uri: starterUri, name: title }
           );
-          vscode.workspace.updateWorkspaceFolders(0, toRemove.length, { uri: starterUri, name: title });
         }
         // Open the best file to edit (prefer index.js over flake.nix etc.)
         const preferredNames = ['index.js', 'main.js', 'index.ts', 'main.ts', 'index.py', 'main.py', 'main.rs', 'main.go'];
@@ -319,18 +333,20 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
-    vscode.commands.registerCommand('scrim.markComplete', async (courseId: string, lessonId: string) => {
+    vscode.commands.registerCommand('scrim.markComplete', async (courseId: string, lessonId: string, navigate: boolean = true) => {
       try {
         await apiClient.markComplete(lessonId);
         vscode.window.showInformationMessage('Lesson completed!');
         myLearningProvider.refresh();
         
-        // Next Lesson auto-navigation
-        const course = await apiClient.getCourse(courseId);
-        const currentIndex = course.lessons.findIndex(l => l.id === lessonId);
-        if (currentIndex !== -1 && currentIndex + 1 < course.lessons.length) {
-          const nextLesson = course.lessons[currentIndex + 1];
-          vscode.commands.executeCommand('scrim.playLesson', courseId, nextLesson.id);
+        // Next Lesson auto-navigation (only if explicitly requested)
+        if (navigate) {
+          const course = await apiClient.getCourse(courseId);
+          const currentIndex = course.lessons.findIndex(l => l.id === lessonId);
+          if (currentIndex !== -1 && currentIndex + 1 < course.lessons.length) {
+            const nextLesson = course.lessons[currentIndex + 1];
+            vscode.commands.executeCommand('scrim.playLesson', courseId, nextLesson.id);
+          }
         }
       } catch (e: any) {
         vscode.window.showErrorMessage('Failed to mark lesson complete: ' + e.message);
@@ -339,11 +355,45 @@ export async function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.registerCommand('scrim.editCourseMetadata', async (item?: any) => {
       if (!item || !item.courseId) return;
-      const desc = await vscode.window.showInputBox({ prompt: 'Enter new course description' });
-      const level = await vscode.window.showQuickPick(['beginner', 'intermediate', 'advanced'], { placeHolder: 'Select level' });
-      if (desc && level) {
-        await apiClient.request('PUT', `/courses/${item.courseId}`, { description: desc, level });
+
+      const courseUri = vscode.Uri.file(Paths.getCourseDir(item.courseId));
+      const manifestUri = vscode.Uri.joinPath(courseUri, 'course.json');
+      let currentMeta: any = {};
+      try {
+        const content = await vscode.workspace.fs.readFile(manifestUri);
+        currentMeta = JSON.parse(Buffer.from(content).toString('utf-8'));
+      } catch {}
+
+      const desc = await vscode.window.showInputBox({ 
+        prompt: 'Enter course description',
+        value: currentMeta.description || ''
+      });
+      if (desc === undefined) return;
+
+      const tagsStr = await vscode.window.showInputBox({ 
+        prompt: 'Enter tags (comma separated)',
+        value: (currentMeta.tags || []).join(', ')
+      });
+      if (tagsStr === undefined) return;
+      const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
+      const level = await vscode.window.showQuickPick(['beginner', 'intermediate', 'advanced'], { 
+        placeHolder: 'Select level'
+      });
+      if (!level) return;
+
+      try {
+        await apiClient.request('PUT', `/courses/${item.courseId}`, { description: desc, tags, level });
+        
+        // Update local manifest
+        currentMeta.description = desc;
+        currentMeta.tags = tags;
+        currentMeta.level = level;
+        await vscode.workspace.fs.writeFile(manifestUri, Buffer.from(JSON.stringify(currentMeta, null, 2), 'utf-8'));
+        
         myCoursesProvider.refresh();
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to update course metadata: ' + e.message);
       }
     }),
     
@@ -355,6 +405,24 @@ export async function activate(context: vscode.ExtensionContext) {
         if (idx > 0) {
           const newOrder = [...course.lessons];
           [newOrder[idx-1], newOrder[idx]] = [newOrder[idx], newOrder[idx-1]];
+          await apiClient.request('PUT', `/courses/${item.courseId}/lessons/order`, { 
+            lessonIds: newOrder.map(l => l.id) 
+          });
+          myCoursesProvider.refresh();
+        }
+      } catch (e: any) {
+        vscode.window.showErrorMessage('Failed to reorder: ' + e.message);
+      }
+    }),
+
+    vscode.commands.registerCommand('scrim.moveLessonDown', async (item?: any) => {
+      if (!item || !item.courseId || !item.lessonId) return;
+      try {
+        const course = await apiClient.getCourse(item.courseId);
+        const idx = course.lessons.findIndex(l => l.id === item.lessonId);
+        if (idx !== -1 && idx < course.lessons.length - 1) {
+          const newOrder = [...course.lessons];
+          [newOrder[idx+1], newOrder[idx]] = [newOrder[idx], newOrder[idx+1]];
           await apiClient.request('PUT', `/courses/${item.courseId}/lessons/order`, { 
             lessonIds: newOrder.map(l => l.id) 
           });
@@ -416,6 +484,28 @@ export async function activate(context: vscode.ExtensionContext) {
       } catch (e) {
         console.warn('Failed to load lesson.json', e);
       }
+
+      const lessonTitle = session.lessonMeta?.title || 'this lesson';
+      const confirm = await vscode.window.showInformationMessage(
+        `Ready to record "${lessonTitle}"? This will open a browser for screen capture.`,
+        'Start Recording', 'Cancel'
+      );
+      if (confirm !== 'Start Recording') return;
+
+      const urlChoice = await vscode.window.showQuickPick([
+        { label: 'http://localhost:3000', description: 'Default React/Vite app' },
+        { label: 'http://localhost:5173', description: 'Vite default port' },
+        { label: 'Custom URL...', description: 'Enter a custom preview URL' },
+        { label: 'No browser preview', description: 'Do not show live preview in VS Code' }
+      ], { placeHolder: 'Select browser preview URL to show in VS Code' });
+      if (!urlChoice) return;
+
+      let previewUrl = urlChoice.label;
+      if (urlChoice.label === 'Custom URL...') {
+        const customUrl = await vscode.window.showInputBox({ prompt: 'Enter custom URL', value: 'http://' });
+        if (!customUrl) return;
+        previewUrl = customUrl;
+      }
       
       const fs = require('fs');
       if (!fs.existsSync(path.join(lessonDir, 'starter'))) {
@@ -427,7 +517,11 @@ export async function activate(context: vscode.ExtensionContext) {
       
       // Start recording
       await recorder.start(context);
-      browserPanel.showLive('http://localhost:3000');
+      vscode.commands.executeCommand('setContext', 'scrim.isRecording', true);
+      vscode.window.showInformationMessage(`Recording started for "${lessonTitle}".`);
+      if (previewUrl !== 'No browser preview') {
+        browserPanel.showLive(previewUrl);
+      }
     }),
 
     
@@ -437,12 +531,15 @@ export async function activate(context: vscode.ExtensionContext) {
         stateManager.transition('PLAYING');
       }
     }),
-vscode.commands.registerCommand('scrim.stopRecording', async () => {
+    vscode.commands.registerCommand('scrim.stopRecording', async () => {
       if (!session.isRecording || !recorder) return;
-      await recorder.stop();
+      vscode.commands.executeCommand('setContext', 'scrim.isRecording', false);
+      const summary = await recorder.stop();
       recorder.dispose();
       recorder = undefined;
-      vscode.window.showInformationMessage('Recording stopped and lesson.scrim saved.');
+      const durationStr = ScrimSession.formatTime(summary.durationMs);
+      vscode.window.showInformationMessage(`✅ Recording saved! Duration: ${durationStr} | ${summary.eventCount} code events | Audio: ${summary.hasAudio?'✓':'✗'} | Screen: ${summary.hasScreen?'✓':'✗'}`);
+      myCoursesProvider.refresh();
     }),
 
     vscode.commands.registerCommand('scrim.markChapter', async () => {
@@ -456,8 +553,8 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
       const prompt = await vscode.window.showInputBox({ prompt: 'Challenge prompt' });
       if (!prompt) return;
       const testCmd = await vscode.window.showInputBox({
-        prompt: 'Test command (leave empty for manual check)',
-        placeHolder: 'e.g. node test.js'
+        prompt: 'Test command to verify challenge (leave empty for manual check)',
+        placeHolder: 'e.g. npm test or bun test'
       });
       recorder.addChallenge('ch-' + Date.now(), prompt, testCmd ?? '');
     }),
@@ -557,6 +654,21 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
         return;
       }
 
+      const fs = require('fs') as typeof import('fs');
+
+      // Pre-publish validation
+      const scrimFile = path.join(lessonDir, 'lesson.scrim');
+      if (!fs.existsSync(scrimFile)) {
+        vscode.window.showErrorMessage('Record a lesson first before publishing.');
+        return;
+      }
+      const webmPath = path.join(lessonDir, 'screen.webm');
+      const mp4Path = path.join(lessonDir, 'screen.mp4');
+      if (fs.existsSync(webmPath) && !fs.existsSync(mp4Path)) {
+        vscode.window.showWarningMessage('Screen recording is still transcoding. Please wait a moment before publishing.');
+        return;
+      }
+
       vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: "Publishing lesson...",
@@ -566,18 +678,19 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
           progress.report({ message: 'Getting upload URLs...' });
           const urls = await apiClient.getUploadUrls(lessonId);
 
-          const fs = require('fs') as typeof import('fs');
           const https = require('https');
           const http = require('http');
 
-          const uploadFile = (filePath: string, urlStr: string) => {
+          const uploadFile = (filePath: string, urlStr: string, name: string) => {
             return new Promise<void>((resolve, reject) => {
               if (!fs.existsSync(filePath)) {
-                console.log(`Skipping missing file: ${filePath}`);
                 resolve();
                 return;
               }
               const stats = fs.statSync(filePath);
+              const sizeMb = (stats.size / (1024 * 1024)).toFixed(1);
+              progress.report({ message: `Uploading ${name} (${sizeMb} MB)...` });
+              
               const url = new URL(urlStr);
               const lib = url.protocol === 'https:' ? https : http;
               
@@ -614,17 +727,10 @@ vscode.commands.registerCommand('scrim.stopRecording', async () => {
             });
           };
 
-          progress.report({ message: 'Uploading lesson.scrim...' });
-          await uploadFile(path.join(lessonDir, 'lesson.scrim'), urls.scrim_url);
-
-          progress.report({ message: 'Uploading audio...' });
-          await uploadFile(path.join(lessonDir, 'audio.ogg'), urls.audio_url);
-
-          progress.report({ message: 'Uploading webcam video...' });
-          await uploadFile(path.join(lessonDir, 'webcam.mp4'), urls.video_url);
-
-          progress.report({ message: 'Uploading screen recording...' });
-          await uploadFile(path.join(lessonDir, 'screen.mp4'), urls.screen_url);
+          await uploadFile(path.join(lessonDir, 'lesson.scrim'), urls.scrim_url, 'lesson.scrim');
+          await uploadFile(path.join(lessonDir, 'audio.ogg'), urls.audio_url, 'audio.ogg');
+          await uploadFile(path.join(lessonDir, 'webcam.mp4'), urls.video_url, 'webcam video');
+          await uploadFile(path.join(lessonDir, 'screen.mp4'), urls.screen_url, 'screen recording');
 
           progress.report({ message: 'Marking as published...' });
           await apiClient.publishLesson(lessonId);

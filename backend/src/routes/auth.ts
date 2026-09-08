@@ -14,8 +14,15 @@ const getJwtSecret = () => {
 
 const rateLimitMap = new Map<string, { count: number, resetAt: number }>();
 const rateLimitMiddleware = async (c: Context, next: Next) => {
-  const ip = c.req.header('x-forwarded-for') || 'unknown';
+  // Use the platform-provided client address; fall back to a constant so rate-limiting still works
+  const ip = (c.req.raw as any).socket?.remoteAddress || c.req.header('x-forwarded-for') || 'unknown';
   const now = Date.now();
+
+  // Evict expired entries to prevent unbounded memory growth
+  for (const [key, rec] of rateLimitMap) {
+    if (rec.resetAt < now) rateLimitMap.delete(key);
+  }
+
   let record = rateLimitMap.get(ip);
   if (!record || record.resetAt < now) {
     record = { count: 0, resetAt: now + 60000 };
@@ -33,6 +40,14 @@ authRouter.post('/register', rateLimitMiddleware, async (c) => {
     return c.json({ error: 'Missing required fields' }, 400);
   }
 
+  // Validate JWT_SECRET before any database writes to avoid orphaned users
+  let jwtSecret: string;
+  try {
+    jwtSecret = getJwtSecret();
+  } catch (e: any) {
+    return c.json({ error: 'Server configuration error' }, 500);
+  }
+
   const existing = await db.user.findFirst({
     where: { OR: [{ email }, { username }] }
   });
@@ -47,7 +62,7 @@ authRouter.post('/register', rateLimitMiddleware, async (c) => {
   });
 
   const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
-  const token = jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
+  const token = jwt.sign(payload, jwtSecret, { expiresIn: '7d' });
 
   return c.json({ token, user: { id: user.id, email: user.email, username: user.username } });
 });

@@ -9,12 +9,14 @@ export class CourseTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly courseId: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    description?: string
   ) {
     super(label, collapsibleState);
     this.contextValue = 'course';
     this.iconPath = new vscode.ThemeIcon('repo');
-    this.description = courseId;
+    this.description = description;
+    this.tooltip = `Course ID: ${courseId}`;
   }
 }
 
@@ -23,12 +25,15 @@ export class LessonTreeItem extends vscode.TreeItem {
     public readonly label: string,
     public readonly courseId: string,
     public readonly lessonId: string,
-    public readonly collapsibleState: vscode.TreeItemCollapsibleState
+    public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+    description?: string,
+    iconId?: string
   ) {
     super(label, collapsibleState);
     this.contextValue = 'lesson';
-    this.iconPath = new vscode.ThemeIcon('play-circle');
-    this.description = lessonId;
+    this.iconPath = new vscode.ThemeIcon(iconId || 'play-circle');
+    this.description = description;
+    this.tooltip = `Lesson ID: ${lessonId}`;
   }
 }
 
@@ -74,7 +79,15 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
         for (const d of dirs) {
           if (d.isDirectory()) {
             const title = await WorkspaceManager.getLessonTitle(element.courseId, d.name);
-            items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.Collapsed));
+            let icon = 'circle-outline';
+            let desc = 'Not recorded';
+            try {
+              const scrimPath = path.join(courseDir, d.name, 'lesson.scrim');
+              await fs.access(scrimPath);
+              icon = 'check';
+              desc = 'Recorded'; // Could parse ScrimReader here, but kept simple to avoid lag
+            } catch {}
+            items.push(new LessonTreeItem(title, element.courseId, d.name, vscode.TreeItemCollapsibleState.Collapsed, desc, icon));
           }
         }
       } catch (e: any) {
@@ -104,7 +117,14 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
       for (const d of dirs) {
         if (d.isDirectory()) {
           const title = await WorkspaceManager.getCourseTitle(d.name);
-          items.push(new CourseTreeItem(title, d.name, vscode.TreeItemCollapsibleState.Collapsed));
+          // Count lessons
+          let lessonCount = 0;
+          try {
+            const courseDir = path.join(coursesDir, d.name);
+            const lessonDirs = await fs.readdir(courseDir, { withFileTypes: true });
+            lessonCount = lessonDirs.filter(l => l.isDirectory()).length;
+          } catch {}
+          items.push(new CourseTreeItem(title, d.name, vscode.TreeItemCollapsibleState.Collapsed, `${lessonCount} lesson${lessonCount === 1 ? '' : 's'}`));
         }
       }
     } catch (e: any) {
@@ -113,14 +133,6 @@ export class MyCoursesViewProvider implements vscode.TreeDataProvider<vscode.Tre
         errorItem.description = e.message;
         items.push(errorItem);
       }
-    }
-
-    // Add a quick action item at the bottom if no courses exist, else just show the list
-    if (items.length === 0) {
-      const newCourseItem = new vscode.TreeItem('Create New Course', vscode.TreeItemCollapsibleState.None);
-      newCourseItem.command = { command: 'scrim.newCourse', title: 'New Course' };
-      newCourseItem.iconPath = new vscode.ThemeIcon('add');
-      items.push(newCourseItem);
     }
 
     return items;

@@ -7,8 +7,9 @@ const coursesRouter = new Hono<Env>();
 
 // Get all published courses
 coursesRouter.get('/', async (c) => {
-  const page = parseInt(c.req.query('page') || '1');
-  const limit = parseInt(c.req.query('limit') || '50');
+  const MAX_LIMIT = 100;
+  const page = Math.max(1, parseInt(c.req.query('page') || '1') || 1);
+  const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(c.req.query('limit') || '50') || 50));
   const skip = (page - 1) * limit;
 
   const [courses, total] = await Promise.all([
@@ -163,6 +164,18 @@ coursesRouter.put('/:id/lessons/order', authMiddleware, async (c) => {
   if (course.author_id !== user.sub) return c.json({ error: 'Forbidden' }, 403);
 
   if (!Array.isArray(lessonIds)) return c.json({ error: 'lessonIds must be an array' }, 400);
+
+  // Verify every supplied lesson ID belongs to this course
+  const courseLessons = await db.lesson.findMany({
+    where: { course_id: courseId },
+    select: { id: true }
+  });
+  const validIds = new Set(courseLessons.map(l => l.id));
+  const suppliedIds = new Set(lessonIds);
+
+  if (suppliedIds.size !== validIds.size || ![...suppliedIds].every(id => validIds.has(id))) {
+    return c.json({ error: 'lessonIds must contain exactly the lessons of this course' }, 400);
+  }
 
   await db.$transaction(
     lessonIds.map((id: string, index: number) =>

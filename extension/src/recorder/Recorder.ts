@@ -126,7 +126,7 @@ export class Recorder {
     this.session.recordedEvents.push({ t, type: 'challenge', id, prompt, hint, test_cmd: testCmd, time_limit_s: null });
   }
 
-  public async stop(): Promise<ScrimEvent[]> {
+  public async stop(): Promise<any> {
     // Stop ticker
     if (this.ticker) {
       clearInterval(this.ticker);
@@ -146,7 +146,14 @@ export class Recorder {
     console.log(`[Recorder] stop(): captured ${allEvents.length} events, duration=${this.session.recordingElapsedMs}ms`);
 
     // Write the .scrim file
-    const duration = this.session.recordingElapsedMs;
+    const screenStart = (this as any).screenStartMs || this.session.recordingStartMs;
+    const shiftMs = this.session.recordingStartMs - screenStart;
+    
+    for (const event of allEvents) {
+      event.t += shiftMs;
+    }
+    
+    const duration = Date.now() - screenStart;
     this.session.isRecording = false;
     const starterFiles = this.initialFiles;
 
@@ -185,7 +192,12 @@ export class Recorder {
       });
     }
 
-    return allEvents;
+    return {
+      durationMs: duration,
+      eventCount: allEvents.length,
+      hasAudio: !!(this as any).audioStarted,
+      hasScreen: !!(this as any).screenStarted
+    };
   }
 
   public dispose(): void {

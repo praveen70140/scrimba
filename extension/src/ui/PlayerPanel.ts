@@ -77,8 +77,10 @@ export class PlayerPanel {
             'Mark Complete', 
             'Next Lesson'
           ).then(choice => {
-            if (choice === 'Mark Complete' || choice === 'Next Lesson') {
-              vscode.commands.executeCommand('scrim.markComplete', this.session.lessonMeta.courseId, this.session.lessonMeta.id);
+            if (choice === 'Mark Complete') {
+              vscode.commands.executeCommand('scrim.markComplete', this.session.lessonMeta.courseId, this.session.lessonMeta.id, /* navigate */ false);
+            } else if (choice === 'Next Lesson') {
+              vscode.commands.executeCommand('scrim.markComplete', this.session.lessonMeta.courseId, this.session.lessonMeta.id, /* navigate */ true);
             }
           });
           break;
@@ -279,8 +281,9 @@ export class PlayerPanel {
           let isDragging = false;
 
           function updateSync() {
-            if (Math.abs(webcam.currentTime - vid.currentTime) > 0.5) webcam.currentTime = vid.currentTime;
-            if (Math.abs(audio.currentTime - vid.currentTime) > 0.5) audio.currentTime = vid.currentTime;
+            const absSec = (startTimeMs / 1000) + vid.currentTime;
+            if (Math.abs(webcam.currentTime - absSec) > 0.5) webcam.currentTime = absSec;
+            if (Math.abs(audio.currentTime - absSec) > 0.5) audio.currentTime = absSec;
           }
 
           // Format mm:ss
@@ -376,13 +379,16 @@ export class PlayerPanel {
           
           function toggleMute() {
             vid.muted = !vid.muted;
+            audio.muted = vid.muted;
             document.getElementById('volOnIcon').style.display = vid.muted || vid.volume===0 ? 'none' : 'block';
             document.getElementById('volOffIcon').style.display = vid.muted || vid.volume===0 ? 'block' : 'none';
-            if (!vid.muted && vid.volume === 0) { vid.volume = 0.5; document.getElementById('volSlider').value = 0.5; }
+            if (!vid.muted && vid.volume === 0) { vid.volume = 0.5; audio.volume = 0.5; document.getElementById('volSlider').value = 0.5; }
           }
           function changeVolume(val) {
             vid.volume = val;
+            audio.volume = val;
             vid.muted = (val == 0);
+            audio.muted = (val == 0);
             document.getElementById('volOnIcon').style.display = vid.muted ? 'none' : 'block';
             document.getElementById('volOffIcon').style.display = vid.muted ? 'block' : 'none';
           }

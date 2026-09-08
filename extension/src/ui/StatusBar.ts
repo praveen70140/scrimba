@@ -12,6 +12,7 @@ export class StatusBar implements vscode.Disposable {
     private stateManager: StateManager
   ) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 90);
+    this.item.show();
     
     this.disposables.push(this.stateManager.onDidTransition(() => this.update()));
     
@@ -36,8 +37,9 @@ export class StatusBar implements vscode.Disposable {
     this.item.color = undefined;
 
     if (state === 'IDLE') {
-      this.item.text = `$(play) Scrimba: Ready`;
-      this.item.tooltip = 'Click to Play';
+      this.item.text = `$(play-circle) Scrimba`;
+      this.item.tooltip = 'Scrimba';
+      this.item.command = 'scrim.catalog'; // fallback quick entry
     } else if (state === 'PLAYING') {
       this.item.text = `$(debug-pause) Scrimba: ${time}`;
       this.item.tooltip = 'Click to Pause';

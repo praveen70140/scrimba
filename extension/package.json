@@ -120,6 +120,11 @@
         "command": "scrim.moveLessonUp",
         "title": "Scrim: Move Lesson Up",
         "icon": "$(arrow-up)"
+      },
+      {
+        "command": "scrim.moveLessonDown",
+        "title": "Scrim: Move Lesson Down",
+        "icon": "$(arrow-down)"
       }
     ],
     "menus": {
@@ -177,6 +182,11 @@
           "group": "inline"
         },
         {
+          "command": "scrim.moveLessonDown",
+          "when": "view == scrim.myCourses && viewItem == lesson",
+          "group": "inline"
+        },
+        {
           "command": "scrim.renameLesson",
           "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "1_modification"
@@ -186,8 +196,50 @@
           "when": "view == scrim.myCourses && viewItem == lesson",
           "group": "1_modification"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "scrim.stopRecording",
+          "when": "scrim.isRecording",
+          "group": "navigation"
+        },
+        {
+          "command": "scrim.markChapter",
+          "when": "scrim.isRecording",
+          "group": "navigation"
+        },
+        {
+          "command": "scrim.addChallenge",
+          "when": "scrim.isRecording",
+          "group": "navigation"
+        }
       ]
     },
+    "keybindings": [
+      {
+        "command": "scrim.startRecording",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "scrim.stopRecording",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "scrim.isRecording"
+      },
+      {
+        "command": "scrim.markChapter",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "scrim.isRecording"
+      },
+      {
+        "command": "scrim.addChallenge",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "scrim.isRecording"
+      }
+    ],
     "viewsContainers": {
       "activitybar": [
         {
@@ -221,6 +273,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "scrim.myCourses",
+        "contents": "No courses yet.\n[Create Your First Course](command:scrim.newCourse)\n\nYou need to be logged in to create courses.\n[Login](command:scrim.login) or [Register](command:scrim.register)"
+      }
+    ],
     "configuration": {
       "title": "Scrim",
       "properties": {

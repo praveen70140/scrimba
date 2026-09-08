@@ -23,10 +23,10 @@ export class Downloader {
     const urls = await this.apiClient.getDownloadUrls(lessonId);
     
     await Promise.all([
-      this.downloadFile(urls.scrim_url, path.join(cacheDir, 'lesson.scrim')),
-      this.downloadFile(urls.audio_url, path.join(cacheDir, 'audio.ogg')).catch(() => console.log('No audio available')),
-      this.downloadFile(urls.video_url, path.join(cacheDir, 'webcam.mp4')).catch(() => console.log('No webcam available')),
-      this.downloadFile(urls.screen_url, path.join(cacheDir, 'screen.mp4')).catch(() => console.log('No screen recording available'))
+      urls.scrim_url ? this.downloadFile(urls.scrim_url, path.join(cacheDir, 'lesson.scrim')) : Promise.resolve(),
+      urls.audio_url ? this.downloadFile(urls.audio_url, path.join(cacheDir, 'audio.ogg')).catch(() => console.log('No audio available')) : Promise.resolve(),
+      urls.video_url ? this.downloadFile(urls.video_url, path.join(cacheDir, 'webcam.mp4')).catch(() => console.log('No webcam available')) : Promise.resolve(),
+      urls.screen_url ? this.downloadFile(urls.screen_url, path.join(cacheDir, 'screen.mp4')).catch(() => console.log('No screen recording available')) : Promise.resolve()
     ]);
 
     return cacheDir;

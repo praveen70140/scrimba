@@ -75,6 +75,7 @@ export class Player implements vscode.Disposable {
               this.stateManager.transition('CHALLENGE');
               this.pause();
               this.handleChallenge(event as any);
+              break;
             }
           }
         }
@@ -99,7 +100,7 @@ export class Player implements vscode.Disposable {
           vscode.window.showErrorMessage('You must fork the code first to solve the challenge!');
           continue;
         }
-        vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Running tests...' }, async () => {
+        await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Running tests...' }, async () => {
           const { ChallengeRunner } = require('../challenge/ChallengeRunner');
           const runner = new ChallengeRunner();
           

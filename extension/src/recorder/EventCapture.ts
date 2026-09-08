@@ -18,8 +18,10 @@ export class EventCapture {
     this.workspaceRoot = workspaceRoot;
   }
 
+  private fallbackStartMs = Date.now();
+
   private get elapsed(): number {
-    return Date.now() - (this.session.recordingStartMs || 0);
+    return Date.now() - (this.session.recordingStartMs || this.fallbackStartMs);
   }
 
   private relativePath(uri: vscode.Uri): string {
@@ -36,6 +38,7 @@ export class EventCapture {
   private sessionGeneration = 0;
 
   public start(context: vscode.ExtensionContext): void {
+    this.fallbackStartMs = Date.now();
     const wsFolders = vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath).join(', ') || 'NONE';
     console.log(`[EventCapture] Started. workspaceRoot="${this.workspaceRoot}", recordingStartMs=${this.session.recordingStartMs}`);
     console.log(`[EventCapture] VS Code workspace folders: ${wsFolders}`);

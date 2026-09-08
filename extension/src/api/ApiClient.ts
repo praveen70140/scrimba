@@ -117,8 +117,8 @@ export class ApiClient {
     return this.request<void>('POST', `/enroll/${encodeURIComponent(courseId)}`);
   }
 
-  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string; audio_url: string; video_url: string; screen_url: string }> {
-    return this.request<{ scrim_url: string; audio_url: string; video_url: string; screen_url: string }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
+  public async getDownloadUrls(lessonId: string): Promise<{ scrim_url: string | null; audio_url: string | null; video_url: string | null; screen_url: string | null }> {
+    return this.request<{ scrim_url: string | null; audio_url: string | null; video_url: string | null; screen_url: string | null }>('GET', `/lessons/${encodeURIComponent(lessonId)}/download`);
   }
 
   public async getUploadUrls(lessonId: string): Promise<any> {

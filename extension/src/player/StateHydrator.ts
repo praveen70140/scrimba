@@ -18,17 +18,17 @@ export class StateHydrator {
 
     console.log(`[StateHydrator] hydrate called: targetTimeMs=${targetTimeMs}, events=${events.length}, initialFiles=${Object.keys(initialFiles).join(', ') || 'NONE'}`);
 
-    // 1. Find the offset for buggy absolute events
+    // 1. Find the offset for buggy absolute events (use minimum, not first, since events can be out of order)
+    const ABSOLUTE_T_THRESHOLD = 1000000000000;
     let timeOffset = 0;
     for (const event of events) {
-      if (event.t > 1000000000000) {
+      if (event.t > ABSOLUTE_T_THRESHOLD && (timeOffset === 0 || event.t < timeOffset)) {
         timeOffset = event.t;
-        break;
       }
     }
 
     for (const event of events) {
-      const isEventAbsolute = event.t > 1000000000000;
+      const isEventAbsolute = event.t > ABSOLUTE_T_THRESHOLD;
       let adjustedT = event.t;
       if (isEventAbsolute && timeOffset > 0) {
         adjustedT = event.t - timeOffset;

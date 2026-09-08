@@ -23,7 +23,8 @@ app.get('/health', async (c) => {
     await db.$queryRaw`SELECT 1`;
     return c.json({ status: 'ok', db: 'connected' });
   } catch (e: any) {
-    return c.json({ status: 'error', error: e.message }, 500);
+    console.error('[health] Database connection error:', e.message);
+    return c.json({ status: 'error', error: 'Database connection failed' }, 500);
   }
 });
 
