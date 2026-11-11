@@ -55,7 +55,7 @@ export class MyForksViewProvider implements vscode.TreeDataProvider<vscode.TreeI
           item.iconPath = new vscode.ThemeIcon('git-branch');
           item.command = {
             command: 'scrim.openFork',
-            title: 'Open Fork',
+            title: 'Open Workspace',
             arguments: [vscode.Uri.file(forkPath)]
           };
           items.push(item);
@@ -63,14 +63,14 @@ export class MyForksViewProvider implements vscode.TreeDataProvider<vscode.TreeI
       }
     } catch (e: any) {
       if (e.code !== 'ENOENT') {
-        const errItem = new vscode.TreeItem('Error loading forks', vscode.TreeItemCollapsibleState.None);
+        const errItem = new vscode.TreeItem('Error loading workspaces', vscode.TreeItemCollapsibleState.None);
         errItem.description = e.message;
         items.push(errItem);
       }
     }
 
     if (items.length === 0) {
-      items.push(new vscode.TreeItem('No forks yet.', vscode.TreeItemCollapsibleState.None));
+      items.push(new vscode.TreeItem('No workspace snapshots yet.', vscode.TreeItemCollapsibleState.None));
     }
 
     return items;

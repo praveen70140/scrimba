@@ -47,8 +47,8 @@ export class StatusBar implements vscode.Disposable {
       this.item.text = `$(play) Scrimba: ${time}`;
       this.item.tooltip = 'Click to Play';
     } else if (state === 'FORKED') {
-      this.item.text = `$(git-branch) Scrimba: Editing Fork`;
-      this.item.tooltip = 'You are editing a fork. Click to resume playback.';
+      this.item.text = `$(git-branch) Scrimba: Editing Workspace`;
+      this.item.tooltip = 'You are editing a workspace snapshot. Click to resume playback.';
       this.item.command = 'scrim.resume';
     } else if (state === 'CHALLENGE') {
       this.item.text = `$(tasklist) Scrimba: Challenge`;

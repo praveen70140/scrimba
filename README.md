@@ -83,3 +83,21 @@ To test and develop the VS Code extension:
 - **MinIO Console**: You can view the mock S3 storage by visiting `http://localhost:9001` in your browser. Log in using `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` defined in `.env.docker`.
 - **Database**: We use Prisma as our ORM. If you modify the schema (`backend/prisma/schema.prisma`), remember to run `bunx prisma migrate dev` to update your local database.
 - **Monorepo setup**: This project uses Bun workspaces. You can see the configuration in `package.json`. Shared code is located in the `packages/` directory and referenced via `workspace:*`.
+
+## Product model
+
+The product uses three terms deliberately:
+
+- A **lesson checkpoint** is a point in the recorded lesson. Teachers can place a challenge checkpoint while recording.
+- A **workspace snapshot** is the editable project created from the exact file state at that checkpoint. The snapshot opens in a separate VS Code window.
+- **Git fork** is an optional local implementation detail. Students can choose “Open workspace and initialize Git”; otherwise the snapshot is simply a normal folder and the student can run Git commands manually in its terminal.
+
+When playback reaches a challenge checkpoint, playback pauses and the extension creates a workspace snapshot automatically. It writes `CHALLENGE.md` and `.scrim-challenge.json` beside the project files. The teacher decides whether the challenge can be skipped and may provide a visible test command. Students can run the test from the workspace or use **Scrim: Check Challenge**.
+
+## Why Nix
+
+Each course template carries a `flake.nix`. The flake is the environment contract for the snapshot: it declares the language runtime, packages, and development commands instead of relying on whatever happens to be installed on the student’s machine. The extension does not replay the teacher’s arbitrary terminal history. A student opens the workspace terminal and runs `nix --extra-experimental-features 'nix-command flakes' develop`, which enters the declared environment in the correct workspace directory.
+
+This choice follows the research behind Nix and NixOS. Dolstra and colleagues describe a purely functional configuration model in which packages and configuration are built from a declarative specification and stored immutably, reducing the hidden machine state that usually makes environments hard to reproduce. See [NixOS: A Purely Functional Linux Distribution](https://nixos.org/~eelco/pubs/nixos-icfp2008-submitted.pdf), the [Nix research index](https://nixos.org/research/), and the practical [How Nix Works](https://nixos.org/guides/how-nix-works/) guide.
+
+For the first version, Linux is the supported host. The snapshot code uses portable path handling and ordinary subprocess execution so WSL support remains possible later. `flake.nix` and lockfiles are course-managed; the extension warns students to leave them unchanged while solving a challenge.

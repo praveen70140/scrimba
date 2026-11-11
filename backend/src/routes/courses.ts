@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { db } from '../db';
 import { authMiddleware, JwtPayload } from '../middleware/auth';
+import * as jwt from 'jsonwebtoken';
 
 type Env = { Variables: { user: JwtPayload } };
 const coursesRouter = new Hono<Env>();
@@ -66,10 +67,11 @@ coursesRouter.get('/:id', async (c) => {
     if (!authHeader) return c.json({ error: 'Course not found' }, 404);
     
     try {
-      const jwt = require('jsonwebtoken');
+      if (!authHeader.startsWith('Bearer ')) return c.json({ error: 'Course not found' }, 404);
       const token = authHeader.substring(7);
       const secret = process.env.JWT_SECRET;
-      const payload = jwt.verify(token, secret) as any;
+      if (!secret) return c.json({ error: 'Course not found' }, 404);
+      const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as any;
       if (payload.sub !== course.author_id) {
         return c.json({ error: 'Course not found' }, 404);
       }

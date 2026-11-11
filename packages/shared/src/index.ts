@@ -79,6 +79,7 @@ export const ScrimEventSchema = z.discriminatedUnion('type', [
     hint: z.string().optional(),
     test_cmd: z.string().optional(),
     time_limit_s: z.number().int().nullable().optional(),
+    allow_skip: z.boolean().default(false).optional(),
   }),
 ]);
 

@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Scrimba Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "preLaunchTask": "scrim: compile extension",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/extension",
+        "${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/extension/dist/**/*.js"]
+    }
+  ]
+}

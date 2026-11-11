@@ -15,6 +15,8 @@ export interface ForkInfo {
   timestampMs: number;
   label: string;
   forkPath: string;
+  kind?: 'workspace-snapshot';
+  challengeId?: string;
 }
 
 /**

@@ -1,7 +1,9 @@
-import * as child_process from 'child_process';
+import * as childProcess from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import * as util from 'util';
 
-const execFile = util.promisify(child_process.execFile);
+const execFile = util.promisify(childProcess.execFile);
 
 export interface ChallengeResult {
   passed: boolean;
@@ -9,42 +11,33 @@ export interface ChallengeResult {
 }
 
 export class ChallengeRunner {
-  /**
-   * Executes a challenge test command in the student's physical fork directory
-   * using child_process.execFile to properly wrap the command in nix develop.
-   * Relies on VS Code's standard Workspace Trust model for security.
-   */
-  public async runChallenge(testCmd: string, forkPath: string, timeoutMs: number = 30000): Promise<ChallengeResult> {
-    const execWithFallback = async () => {
-      try {
-        return await execFile('nix', ['develop', '--command', 'sh', '-c', testCmd], {
-          cwd: forkPath,
-          timeout: timeoutMs,
-        });
-      } catch (nixError: any) {
-        // Fall back only when the nix binary itself is unavailable
-        if (nixError?.code === 'ENOENT') {
-          console.warn('Nix not found, falling back to standard shell execution.');
-          return await execFile('sh', ['-c', testCmd], {
-            cwd: forkPath,
-            timeout: timeoutMs,
-          });
-        }
-        throw nixError;
-      }
-    };
+  public async runChallenge(testCmd: string, workspacePath: string, timeoutMs = 30000): Promise<ChallengeResult> {
+    const command = testCmd.trim();
+    if (!command) return { passed: false, output: 'No challenge test command was configured.' };
+
+    let useNix = false;
+    try {
+      await fs.access(path.join(workspacePath, 'flake.nix'));
+      await execFile('nix', ['--version'], { timeout: 5000 });
+      useNix = true;
+    } catch { /* run the command directly when the workspace or host has no Nix */ }
 
     try {
-      const { stdout, stderr } = await execWithFallback();
-      return {
-        passed: true,
-        output: [stdout, stderr].filter(Boolean).join('\n') || 'Passed successfully.',
-      };
+      const args = useNix
+        ? ['--extra-experimental-features', 'nix-command flakes', 'develop', '--command', 'sh', '-c', command]
+        : ['-c', command];
+      const executable = useNix ? 'nix' : 'sh';
+      const { stdout, stderr } = await execFile(executable, args, {
+        cwd: workspacePath,
+        timeout: timeoutMs,
+        maxBuffer: 4 * 1024 * 1024,
+        windowsHide: true,
+      });
+      return { passed: true, output: [stdout, stderr].filter(Boolean).join('\n') || 'Passed successfully.' };
     } catch (error: any) {
-      const output = [error.stdout, error.stderr, error.message].filter(Boolean).join('\n') || 'Test failed.';
       return {
         passed: false,
-        output,
+        output: [error?.stdout, error?.stderr, error?.message].filter(Boolean).join('\n') || 'Test failed.',
       };
     }
   }

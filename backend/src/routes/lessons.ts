@@ -31,7 +31,7 @@ lessonsRouter.get('/:id/download', authMiddleware, async (c) => {
 
   try {
     const scrim_url = lesson.scrim_key ? await getPresignedGetUrl(lesson.scrim_key) : null;
-    const audio_url = lesson.video_key ? await getPresignedGetUrl(`${lesson.video_key.replace(/\\.[^./]+$/, '')}_audio.ogg`) : null;
+    const audio_url = lesson.video_key ? await getPresignedGetUrl(`${lesson.video_key.replace(/\.[^./]+$/, '')}_audio.ogg`) : null;
     const video_url = lesson.video_key ? await getPresignedGetUrl(lesson.video_key) : null;
     const screen_url = lesson.screen_key ? await getPresignedGetUrl(lesson.screen_key) : null;
 
@@ -76,7 +76,7 @@ lessonsRouter.post('/:id/upload-urls', authMiddleware, async (c) => {
 
   try {
     const scrim_url = await getPresignedPutUrl(lesson.scrim_key!, 'application/json');
-    const audio_url = await getPresignedPutUrl(`${lesson.video_key!.replace(/\\.[^./]+$/, '')}_audio.ogg`, 'audio/ogg');
+    const audio_url = await getPresignedPutUrl(`${lesson.video_key!.replace(/\.[^./]+$/, '')}_audio.ogg`, 'audio/ogg');
     const video_url = await getPresignedPutUrl(lesson.video_key!, 'video/mp4');
     const screen_url = await getPresignedPutUrl(lesson.screen_key!, 'video/mp4');
 

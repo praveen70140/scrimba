@@ -64,17 +64,17 @@ export class PlayerPanel {
         case 'play': this.player.play(); break;
         case 'pause': this.player.pause(); break;
         case 'seek': this.player.seekTo(message.timeMs); break;
-        case 'fork': 
+        case 'fork':
           this.session.currentTimeMs = message.timeMs;
-          this.player.fork(); 
+          void this.player.fork().catch(error => vscode.window.showErrorMessage(`Could not create workspace snapshot: ${error?.message ?? error}`));
           break;
         case 'timeupdate':
           this.player.updateTime(message.timeMs);
           break;
         case 'ended': {
           vscode.window.showInformationMessage(
-            'You finished this lesson!', 
-            'Mark Complete', 
+            'You finished this lesson!',
+            'Mark Complete',
             'Next Lesson'
           ).then(choice => {
             if (choice === 'Mark Complete') {
@@ -86,6 +86,7 @@ export class PlayerPanel {
           break;
         }
         case 'openFork': {
+          if (typeof message.forkId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(message.forkId)) return;
           const forkPath = path.join(Paths.getForksDir(this.session.lessonMeta.id), message.forkId);
           vscode.commands.executeCommand('scrim.openFork', vscode.Uri.file(forkPath));
           break;
@@ -97,6 +98,10 @@ export class PlayerPanel {
       this.panel = undefined;
       this.server.stop();
     });
+  }
+
+  public addWorkspaceSnapshot(snapshot: { id: string; t: number; label: string }): void {
+    this.panel?.webview.postMessage({ command: 'workspaceSnapshotCreated', snapshot });
   }
 
   public dispose(): void {
@@ -124,7 +129,7 @@ export class PlayerPanel {
 
     const chapters = this.session.events.filter(e => e.type === 'chapter');
     const challenges = this.session.events.filter(e => e.type === 'challenge');
-    
+
     const duration = this.session.lessonMeta.durationMs || 100000;
     const startTimeMs = this.session.lessonMeta.screenStartMs || 0;
 
@@ -147,11 +152,11 @@ export class PlayerPanel {
           video#vid { width: 100%; height: 100%; object-fit: contain; outline: none; }
           video#webcam { position: absolute; bottom: 80px; right: 20px; width: 240px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10; background: #000; pointer-events: none; }
           audio { display: none; }
-          
+
           /* Controls Overlay */
           .controls-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 10px 20px; opacity: 0; transition: opacity 0.3s; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
           .video-container:hover .controls-overlay, .controls-overlay.active { opacity: 1; }
-          
+
           /* Timeline */
           .timeline-wrapper { position: relative; height: 20px; display: flex; align-items: center; cursor: pointer; }
           .timeline-track { position: relative; width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; transition: height 0.1s; }
@@ -164,27 +169,28 @@ export class PlayerPanel {
           .marker { position: absolute; top: 50%; transform: translate(-50%, -50%); cursor: pointer; z-index: 2; }
           .marker.chapter { width: 4px; height: 10px; background: #fff; border-radius: 2px; }
           .marker.challenge { width: 8px; height: 8px; background: #FFD700; transform: translate(-50%, -50%) rotate(45deg); }
-          .marker.fork { width: 8px; height: 8px; background: #9b59b6; border-radius: 50%; }
+          .marker.fork { width: 10px; height: 10px; background: #b56cff; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px rgba(181,108,255,0.35), 0 0 8px rgba(181,108,255,0.8); z-index: 4; }
+          .marker.fork:hover { transform: translate(-50%, -50%) scale(1.3); }
 
           /* Tooltip */
           .tooltip { position: absolute; bottom: 100%; margin-bottom: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; border: 1px solid rgba(255,255,255,0.1); z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 6px; }
           .tooltip::after { content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 12px; background: transparent; }
           .marker:hover .tooltip, .tooltip:hover { opacity: 1; pointer-events: auto; }
-          
+
           /* Control Buttons */
           .controls-row { display: flex; align-items: center; justify-content: space-between; }
           .controls-left, .controls-right { display: flex; align-items: center; gap: 15px; }
-          
+
           .btn { background: none; border: none; color: white; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.85; transition: opacity 0.2s, color 0.2s; }
           .btn:hover { opacity: 1; color: var(--accent); }
           .btn svg { width: 22px; height: 22px; fill: currentColor; }
-          
+
           .time-display { font-size: 13px; font-variant-numeric: tabular-nums; opacity: 0.9; margin-left: 5px; }
-          
+
           .speed-select { background: transparent; color: white; border: none; font-size: 13px; cursor: pointer; outline: none; opacity: 0.85; font-weight: 500; }
           .speed-select option { background: #222; color: white; }
           .speed-select:hover { opacity: 1; color: var(--accent); }
-          
+
           .volume-group { display: flex; align-items: center; gap: 5px; }
           .volume-slider { width: 0; opacity: 0; transition: width 0.2s, opacity 0.2s; overflow: hidden; display: flex; align-items: center; }
           .volume-group:hover .volume-slider { width: 60px; opacity: 1; }
@@ -201,7 +207,7 @@ export class PlayerPanel {
           <video id="vid" src="${videoUri}"></video>
           <video id="webcam" src="${webcamUri}" muted autoplay playsinline></video>
           <audio id="audio" src="${audioUri}"></audio>
-          
+
           <div class="center-play" id="centerPlay">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
@@ -221,7 +227,7 @@ export class PlayerPanel {
                   <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   <svg id="pauseIcon" viewBox="0 0 24 24" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 </button>
-                
+
                 <div class="volume-group">
                   <button class="btn" onclick="toggleMute()" title="Mute/Unmute">
                     <svg id="volOnIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -236,11 +242,11 @@ export class PlayerPanel {
               </div>
 
               <div class="controls-right">
-                <button class="btn" onclick="fork()" title="Create Fork Here" style="font-size: 13px; font-weight: 500; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px 8px;">
+                <button class="btn" onclick="fork()" title="Create Workspace Snapshot" style="font-size: 13px; font-weight: 500; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 2px 8px;">
                   <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; margin-right: 4px;"><path d="M15 4c-1.1 0-2 .9-2 2 0 .53.22 1.01.57 1.34l-3.08 3.08c-.33-.35-.81-.57-1.34-.57s-1.01.22-1.34.57L4.73 7.34C5.08 7.01 5.3 6.53 5.3 6c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2c.53 0 1.01-.22 1.34-.57l3.08 3.08c-.35.33-.57.81-.57 1.34s.22 1.01.57 1.34l-3.08 3.08C4.33 16.22 3.85 16 3.33 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2c0-.53-.22-1.01-.57-1.34l3.08-3.08c.33.35.81.57 1.34.57s1.01-.22 1.34-.57l3.08 3.08c-.35.33-.57.81-.57 1.34 0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2c-.53 0-1.01.22-1.34.57l-3.08-3.08c.35-.33.57-.81.57-1.34s-.22-1.01-.57-1.34l3.08-3.08c.33.35.81.57 1.34.57 1.1 0 2-.9 2-2s-.9-2-2-2z"/></svg>
-                  Fork
+                  Snapshot
                 </button>
-                
+
                 <select class="speed-select" id="speedSelect" onchange="changeSpeed(this.value)" title="Playback Speed">
                   <option value="0.75">0.75x</option>
                   <option value="1" selected>1x</option>
@@ -262,15 +268,15 @@ export class PlayerPanel {
           const vid = document.getElementById('vid');
           const webcam = document.getElementById('webcam');
           const audio = document.getElementById('audio');
-          
+
           webcam.addEventListener('error', () => webcam.style.display = 'none');
-          
+
           const durationMs = ${duration};
           const startTimeMs = ${startTimeMs};
           const chapters = ${serializeForInlineScript(chapters)};
           const challenges = ${serializeForInlineScript(challenges)};
           const forks = ${serializeForInlineScript(forks)};
-          
+
           const track = document.getElementById('timelineTrack');
           const prog = document.getElementById('progress');
           const thumb = document.getElementById('thumb');
@@ -293,7 +299,7 @@ export class PlayerPanel {
           }
 
           // Initialize markers
-          function addMarker(arr, cls, getLabel, getTime) {
+          function addMarker(arr, cls, getLabel, getTime, onClick) {
             arr.forEach(item => {
               const t = getTime(item);
               if (t < 0 || t > durationMs) return;
@@ -301,21 +307,33 @@ export class PlayerPanel {
               const el = document.createElement('div');
               el.className = 'marker ' + cls;
               el.style.left = p + '%';
-              
+              el.dataset.snapshotId = item.id || '';
+
               const tt = document.createElement('div');
               tt.className = 'tooltip';
               tt.innerHTML = getLabel(item);
               el.appendChild(tt);
-              
-              el.onclick = (e) => { e.stopPropagation(); seekToTime(t); };
+
+              el.onclick = (e) => {
+                e.stopPropagation();
+                if (onClick) onClick(item, t);
+                else seekToTime(t);
+              };
               track.appendChild(el);
             });
           }
           addMarker(chapters, 'chapter', c => 'Chapter: ' + c.title, c => c.t);
           addMarker(challenges, 'challenge', c => 'Challenge: ' + c.prompt, c => c.t);
-          addMarker(forks, 'fork', f => {
-            return '<span>Fork: ' + f.label + '</span><button onclick="event.stopPropagation(); vscode.postMessage({command: \\'openFork\\', forkId: \\'' + f.id + '\\'})" style="padding: 4px 8px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">Open in code editor</button>';
-          }, f => f.t - startTimeMs);
+          const openSnapshot = f => vscode.postMessage({ command: 'openFork', forkId: f.id });
+          const snapshotLabel = f => '<strong>Workspace snapshot</strong><br>' + f.label + '<br><small>Click to open this workspace</small>';
+          forks.sort((a, b) => a.t - b.t);
+          addMarker(forks, 'fork', snapshotLabel, f => f.t - startTimeMs, openSnapshot);
+
+          function addWorkspaceSnapshot(f) {
+            const existing = track.querySelector('[data-snapshot-id="' + f.id + '"]');
+            if (existing) return;
+            addMarker([f], 'fork', snapshotLabel, item => item.t - startTimeMs, openSnapshot);
+          }
 
           function updateTimeUI() {
             const relTimeMs = vid.currentTime * 1000;
@@ -341,7 +359,7 @@ export class PlayerPanel {
             audio.play().catch(()=>{});
             vscode.postMessage({ command: 'play' });
           });
-          
+
           vid.addEventListener('pause', () => {
             playIcon.style.display = 'block';
             pauseIcon.style.display = 'none';
@@ -376,7 +394,7 @@ export class PlayerPanel {
           }
 
           function changeSpeed(val) { vid.playbackRate = parseFloat(val); }
-          
+
           function toggleMute() {
             vid.muted = !vid.muted;
             audio.muted = vid.muted;
@@ -439,8 +457,9 @@ export class PlayerPanel {
             if (msg.command === 'play') vid.play();
             if (msg.command === 'pause') vid.pause();
             if (msg.command === 'seek') vid.currentTime = (msg.timeMs - startTimeMs) / 1000;
+            if (msg.command === 'workspaceSnapshotCreated') addWorkspaceSnapshot(msg.snapshot);
           });
-          
+
           // Initial trigger
           updateTimeUI();
           vid.play();

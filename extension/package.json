@@ -5,7 +5,10 @@
   "version": "1.0.0",
   "publisher": "scrimba",
   "icon": "media/scrim-icon.svg",
-  "categories": ["Education", "Other"],
+  "categories": [
+    "Education",
+    "Other"
+  ],
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -89,7 +92,7 @@
       },
       {
         "command": "scrim.fork",
-        "title": "Scrim: Fork Here"
+        "title": "Scrim: Create Workspace Snapshot"
       },
       {
         "command": "scrim.togglePlayPause",
@@ -125,6 +128,16 @@
         "command": "scrim.moveLessonDown",
         "title": "Scrim: Move Lesson Down",
         "icon": "$(arrow-down)"
+      },
+      {
+        "command": "scrim.checkChallenge",
+        "title": "Scrim: Check Challenge",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "scrim.showEnvironment",
+        "title": "Scrim: Explain Course Environment",
+        "icon": "$(info)"
       }
     ],
     "menus": {
@@ -268,7 +281,7 @@
         },
         {
           "id": "scrim.myForks",
-          "name": "My Forks",
+          "name": "My Workspaces",
           "type": "tree"
         }
       ]

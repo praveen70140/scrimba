@@ -7,63 +7,42 @@ export interface StateTransitionEvent {
   session: ScrimSession;
 }
 
-/**
- * StateManager enforces valid state transitions for the player state machine.
- *
- * Valid transitions:
- *   IDLE       → PLAYING
- *   PLAYING    → PAUSED | FORKED | CHALLENGE
- *   PAUSED     → PLAYING | FORKED
- *   FORKED     → PLAYING (resume) | CHALLENGE
- *   CHALLENGE  → PLAYING (pass/skip) | FORKED (auto-fork at challenge point)
- */
 export class StateManager {
   private _onDidTransition = new vscode.EventEmitter<StateTransitionEvent>();
   public readonly onDidTransition = this._onDidTransition.event;
 
-  private static VALID_TRANSITIONS: Record<PlayerState, PlayerState[]> = {
-    IDLE:      ['PLAYING'],
-    PLAYING:   ['PAUSED', 'FORKED', 'CHALLENGE'],
-    PAUSED:    ['PLAYING', 'FORKED'],
-    FORKED:    ['PLAYING', 'CHALLENGE'],
+  private static readonly VALID_TRANSITIONS: Record<PlayerState, PlayerState[]> = {
+    IDLE: ['PLAYING'],
+    PLAYING: ['PAUSED', 'FORKED', 'CHALLENGE'],
+    PAUSED: ['PLAYING', 'FORKED'],
+    FORKED: ['PLAYING', 'CHALLENGE'],
     CHALLENGE: ['PLAYING', 'FORKED'],
   };
 
   constructor(private session: ScrimSession) {}
 
-  /**
-   * Attempts a state transition. Throws if the transition is not valid.
-   * Same-state is a no-op and does not fire an event.
-   */
   public transition(to: PlayerState): void {
     const from = this.session.playerState;
-
-    if (from === to) return; // no-op
-
-    const allowed = StateManager.VALID_TRANSITIONS[from];
-    if (!allowed.includes(to)) {
+    if (from === to) return;
+    if (!StateManager.VALID_TRANSITIONS[from].includes(to)) {
       throw new Error(`Invalid state transition: ${from} → ${to}`);
     }
-
     this.session.playerState = to;
     this._onDidTransition.fire({ from, to, session: this.session });
   }
 
-  /**
-   * Checks if a given transition is valid without performing it.
-   * Returns true for same-state (mirrors transition() no-op behaviour).
-   */
+  /** Starts a fresh lesson session without making the caller fake transitions. */
+  public reset(): void {
+    const from = this.session.playerState;
+    if (from === 'IDLE') return;
+    this.session.playerState = 'IDLE';
+    this._onDidTransition.fire({ from, to: 'IDLE', session: this.session });
+  }
+
   public canTransition(to: PlayerState): boolean {
-    if (this.session.playerState === to) return true; // same-state no-op is valid
-    const allowed = StateManager.VALID_TRANSITIONS[this.session.playerState];
-    return allowed.includes(to);
+    return this.session.playerState === to || StateManager.VALID_TRANSITIONS[this.session.playerState].includes(to);
   }
 
-  public get currentState(): PlayerState {
-    return this.session.playerState;
-  }
-
-  public dispose(): void {
-    this._onDidTransition.dispose();
-  }
+  public get currentState(): PlayerState { return this.session.playerState; }
+  public dispose(): void { this._onDidTransition.dispose(); }
 }

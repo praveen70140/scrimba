@@ -37,6 +37,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const browserPanel = new BrowserPreviewPanel(context, session);
 
   player.setPlayerPanel(playerPanel);
+  context.subscriptions.push(statusBar, player, playerPanel);
 
   const catalogProvider = new CatalogViewProvider(apiClient);
   const myLearningProvider = new MyLearningViewProvider(apiClient);
@@ -307,7 +308,7 @@ export async function activate(context: vscode.ExtensionContext) {
           // Set media base dir so PlayerPanel can serve media from cache
           session.lessonDir = cacheDir; 
           
-          playerPanel.show(cacheDir); // Pass empty forks or load forks if we want
+          await playerPanel.show(cacheDir);
           player.play();
         });
       } catch (e: any) {
@@ -556,7 +557,9 @@ export async function activate(context: vscode.ExtensionContext) {
         prompt: 'Test command to verify challenge (leave empty for manual check)',
         placeHolder: 'e.g. npm test or bun test'
       });
-      recorder.addChallenge('ch-' + Date.now(), prompt, testCmd ?? '');
+      const hint = await vscode.window.showInputBox({ prompt: 'Optional hint (leave empty for none)' });
+      const skipChoice = await vscode.window.showQuickPick(['No, require completion', 'Yes, allow skipping'], { placeHolder: 'Can students skip this challenge?' });
+      recorder.addChallenge('ch-' + Date.now(), prompt, testCmd ?? '', hint ?? '', skipChoice === 'Yes, allow skipping');
     }),
 
     // ── Playback ─────────────────────────────────────────────────────────────

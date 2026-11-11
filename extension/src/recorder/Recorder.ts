@@ -121,9 +121,9 @@ export class Recorder {
     this.session.recordedEvents.push({ t, type: 'chapter', title, description: '' });
   }
 
-  public addChallenge(id: string, prompt: string, testCmd: string, hint: string = ''): void {
+  public addChallenge(id: string, prompt: string, testCmd: string, hint: string = '', allowSkip: boolean = false): void {
     const t = this.session.recordingElapsedMs;
-    this.session.recordedEvents.push({ t, type: 'challenge', id, prompt, hint, test_cmd: testCmd, time_limit_s: null });
+    this.session.recordedEvents.push({ t, type: 'challenge', id, prompt, hint, test_cmd: testCmd, time_limit_s: null, allow_skip: allowSkip });
   }
 
   public async stop(): Promise<any> {
