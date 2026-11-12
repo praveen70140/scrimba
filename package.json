@@ -8,7 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun build:backend && bun build:extension",
+    "build": "bun build:shared && bun build:backend && bun build:extension",
+    "build:shared": "cd backend && bun run tsc -b --force ../packages/shared",
     "build:backend": "cd backend && bun run tsc -b",
     "build:extension": "cd extension && bun run tsc -b",
     "dev:backend": "cd backend && bun run --watch src/index.ts",

@@ -4,11 +4,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY || 'minioadmin',
-    secretAccessKey: process.env.S3_SECRET_KEY || 'minioadmin'
+    accessKeyId: process.env.S3_ACCESS_KEY || 'rustfsadmin',
+    secretAccessKey: process.env.S3_SECRET_KEY || 'rustfs_password'
   },
   endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
-  forcePathStyle: true, // Needed for MinIO / localstack
+  forcePathStyle: true, // Needed for RustFS and other local S3-compatible services
 });
 
 const bucketName = process.env.S3_BUCKET || 'scrimba';

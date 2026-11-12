@@ -5,7 +5,7 @@ This repository contains a clone of the Scrimba learning platform, featuring a V
 ## Prerequisites
 
 - [Bun](https://bun.sh/) (used as the primary package manager and runtime)
-- [Docker](https://www.docker.com/) & Docker Compose (for PostgreSQL and MinIO)
+- [Docker](https://www.docker.com/) & Docker Compose (for PostgreSQL and RustFS)
 - [Node.js](https://nodejs.org/) (for VS Code extension tools)
 - [VS Code](https://code.visualstudio.com/)
 
@@ -27,7 +27,7 @@ bun install
 
 ### 2. Setup Docker Services (Database & Storage)
 
-The backend requires a PostgreSQL database and an S3-compatible storage service (MinIO is used for local development).
+The backend requires a PostgreSQL database and an S3-compatible storage service (RustFS is used for local development).
 
 1. Create your Docker environment file by copying the template:
    ```bash
@@ -37,7 +37,7 @@ The backend requires a PostgreSQL database and an S3-compatible storage service 
    ```bash
    docker compose up -d
    ```
-   *(This starts PostgreSQL on port `5432` and the MinIO API/Console on ports `9000`/`9001`)*
+   *(This starts PostgreSQL on port `5432` and the RustFS S3 API/Console on ports `9000`/`9001`)*
 
 ### 3. Configure the Backend
 
@@ -80,7 +80,7 @@ To test and develop the VS Code extension:
 
 ## Other Important Details
 
-- **MinIO Console**: You can view the mock S3 storage by visiting `http://localhost:9001` in your browser. Log in using `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD` defined in `.env.docker`.
+- **RustFS Console**: You can view the mock S3 storage by visiting `http://localhost:9001` in your browser. Log in using `RUSTFS_ACCESS_KEY` and `RUSTFS_SECRET_KEY` defined in `.env.docker`.
 - **Database**: We use Prisma as our ORM. If you modify the schema (`backend/prisma/schema.prisma`), remember to run `bunx prisma migrate dev` to update your local database.
 - **Monorepo setup**: This project uses Bun workspaces. You can see the configuration in `package.json`. Shared code is located in the `packages/` directory and referenced via `workspace:*`.
 

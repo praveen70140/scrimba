@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -7,24 +7,27 @@ services:
     env_file:
       - .env.docker
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - scrimba_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
-  minio:
-    image: minio/minio
-    container_name: scrimba_minio
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: scrimba_rustfs
     env_file:
       - .env.docker
-    command: server /data --console-address ":9001"
+    environment:
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
     ports:
       - "127.0.0.1:9000:9000"
       - "127.0.0.1:9001:9001"
     volumes:
-      - scrimba_miniodata:/data
+      - scrimba_rustfsdata:/data
     restart: unless-stopped
 
 volumes:
   scrimba_pgdata:
-  scrimba_miniodata:
+  scrimba_rustfsdata:
