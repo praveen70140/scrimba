@@ -1,4 +1,4 @@
-# Fullscreen Code - OSS build
+# Scrimba editor with video fullscreen
 
 This directory carries a small patch series for the desktop editor. The source is
 pinned to VS Code **1.146.0**, commit
@@ -8,7 +8,7 @@ identified this version as the latest stable release. CI always uses this exact
 commit; it does not follow `main` or a moving stable channel.
 
 The local clone is `vscode/source/`, which is ignored by the parent repository.
-Only the pin, patches, scripts, copied pipeline references, and test fixture are
+Only the pin, branding configuration, patches, scripts, copied pipeline references, and test fixture are
 tracked. Preparing or validating the patches does not install VS Code dependencies
 or build VS Code:
 
@@ -20,6 +20,16 @@ python3 -m unittest discover -s vscode/tests -p 'test_*.py' -v
 `prepare.py` checks the release tag, commit, and package version before applying
 `patches/series`. Re-running it accepts exactly the expected patched source. It
 refuses unexpected local changes instead of resetting the source checkout.
+
+## Scrimba application identity
+
+Before building, `scripts/brand.py` overlays `product-overrides.json` on upstream
+`product.json`. The editor is named **Scrimba**, its executable and CLI are
+`scrimba`, and its URL scheme is `scrimba://`. Editor settings and extensions use
+`.scrimba-editor` and shared editor storage uses `.scrimba-editor-shared`.
+Those directories are separate from both VS Code and `~/.scrimba` course data.
+This is distribution configuration, not another VS Code source patch. The source
+checkout is still named `vscode/source` for the existing build tooling.
 
 ## What the patch enables
 
@@ -72,19 +82,26 @@ The workflow:
 4. Starts the packaged app under Xvfb, loads a real extension webview, plays a
    generated video stream, clicks its fullscreen button, and verifies Escape exits.
 5. Archives the application using upstream's portable Linux archive layout.
-6. Publishes a GitHub Release with the archive, a provenance JSON file, and
-   `SHA256SUMS`. The JSON is also embedded as `fullscreen-build.json` in the app.
+6. Publishes a GitHub Release with the archive, a provenance JSON file,
+   verification diagnostics, and `SHA256SUMS`. The JSON is also embedded as
+   `fullscreen-build.json` in the app.
 
 Release tags contain the pinned VS Code version and the **full Scrimba commit
 SHA**. Release notes record both the Scrimba commit and upstream VS Code commit,
 plus the Actions run URL. Re-running a build for the same commit updates that
-commit's release assets. Publication happens only after the build and fullscreen
-smoke test succeed. The workflow uses the repository's normal `GITHUB_TOKEN`; it
+commit's release assets. A successful build is published even if fullscreen verification fails or times
+out. Such releases have **verification failed** in the title and a warning in the
+notes, manifest, and `VERIFICATION_FAILED.txt` (also inside the app archive).
+The diagnostics archive includes the test output, editor logs, activation marker,
+window/frame details, and screenshots when available. This allows manual testing
+without presenting an unverified build as tested. Compilation/packaging failures
+still prevent publication. The workflow uses the repository's normal `GITHUB_TOKEN`; it
 needs no custom release secret. Only the release job has `contents: write`.
 
 The initial target is **Linux x64**, delivered as `.tar.gz`. Extract it and run
-`VSCode-linux-x64/bin/code-oss`. The archive retains upstream Code - OSS branding
-and distribution defaults. It can coexist with the Microsoft-branded editor.
+`Scrimba-linux-x64/bin/scrimba`. The archive is named `scrimba-fullscreen-...tar.gz`;
+upstream's internal staging folder remains `VSCode-linux-x64`. Its separate editor
+identity and data directories let it coexist with VS Code.
 Windows, macOS, ARM, native installer packages, Microsoft signing, remote-server
 artifacts, and Microsoft distribution mixins are outside this initial pipeline.
 
@@ -112,6 +129,6 @@ compile Electron. `build-linux.sh` refuses to run outside GitHub Actions.
 Choose a new stable tag deliberately, update `upstream.json` with its full commit,
 and use a fresh `source/` checkout. Rebase the patches and refresh the copied
 pipeline files from that same tag. Run the lightweight checks, then push the
-change. The hosted build and fullscreen test must pass before a release appears.
+change. The hosted build must pass before a release appears; failed fullscreen verification is published with an explicit warning.
 Do not edit the ignored checkout as the permanent source of a patch: regenerate
 the tracked patch files from its diff.

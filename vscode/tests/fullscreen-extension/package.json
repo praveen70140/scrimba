@@ -3,7 +3,11 @@
   "displayName": "Scrimba Fullscreen Smoke Test",
   "publisher": "scrimba",
   "version": "0.0.1",
-  "engines": { "vscode": "^1.146.0" },
+  "engines": {
+    "vscode": "^1.146.0"
+  },
   "main": "./extension.js",
-  "activationEvents": ["onStartupFinished"]
+  "activationEvents": [
+    "*"
+  ]
 }

@@ -1,6 +1,10 @@
 const vscode = require('vscode');
 
 exports.activate = function activate(context) {
+  const diagnostics = process.env.SCRIMBA_SMOKE_DIAGNOSTICS;
+  if (diagnostics) {
+    require('fs').writeFileSync(require('path').join(diagnostics, 'extension-activated.txt'), new Date().toISOString());
+  }
   const panel = vscode.window.createWebviewPanel(
     'scrimba.fullscreenSmoke', 'Fullscreen smoke test', vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true }

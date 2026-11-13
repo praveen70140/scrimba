@@ -1,0 +1,19 @@
+{
+  "nameShort": "Scrimba",
+  "nameLong": "Scrimba",
+  "applicationName": "scrimba",
+  "dataFolderName": ".scrimba-editor",
+  "sharedDataFolderName": ".scrimba-editor-shared",
+  "serverApplicationName": "scrimba-server",
+  "serverDataFolderName": ".scrimba-editor-server",
+  "tunnelApplicationName": "scrimba-tunnel",
+  "urlProtocol": "scrimba",
+  "linuxDesktopName": "app.scrimba.Editor",
+  "win32MutexName": "scrimba-editor",
+  "win32DirName": "Scrimba",
+  "win32NameVersion": "Scrimba",
+  "win32RegValueName": "Scrimba",
+  "win32AppUserModelId": "Scrimba.Editor",
+  "win32ShellNameShort": "Scrimba",
+  "darwinBundleIdentifier": "app.scrimba.editor"
+}

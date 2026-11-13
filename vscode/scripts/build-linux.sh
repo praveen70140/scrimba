@@ -6,6 +6,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "$script_dir/../.." && pwd)"
 [[ "${GITHUB_ACTIONS:-}" == true ]] || { echo 'Run this build in GitHub Actions, not locally.' >&2; exit 1; }
 source_dir="$project_root/vscode/source"
+python3 "$script_dir/brand.py"
 cd "$source_dir"
 export CI=true
 export VSCODE_ARCH=x64

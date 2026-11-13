@@ -1,4 +1,4 @@
-name: Build fullscreen Code OSS
+name: Build fullscreen Scrimba
 
 on:
   push:
@@ -78,13 +78,28 @@ jobs:
       - name: Build using the pinned upstream pipeline tasks
         run: bash vscode/scripts/build-linux.sh
       - name: Verify video fullscreen in the packaged app
+        id: verification
+        continue-on-error: true
         timeout-minutes: 5
-        run: xvfb-run -a -s '-screen 0 1280x800x24' node vscode/tests/fullscreen-smoke.cjs
+        run: |
+          mkdir -p vscode/verification
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x800x24' node vscode/tests/fullscreen-smoke.cjs 2>&1 | tee vscode/verification/verification.log
+      - name: Report verification result
+        env:
+          VERIFICATION_STATUS: ${{ steps.verification.outcome }}
+        run: |
+          if [[ "$VERIFICATION_STATUS" != success ]]; then
+            echo '::warning::Fullscreen verification failed. Publishing the built Scrimba binaries for manual testing with diagnostics attached.'
+          fi
+          echo "Fullscreen verification: $VERIFICATION_STATUS" >> "$GITHUB_STEP_SUMMARY"
       - name: Archive and write commit provenance
+        env:
+          VERIFICATION_STATUS: ${{ steps.verification.outcome }}
         run: python3 vscode/scripts/package.py
       - uses: actions/upload-artifact@v4
         with:
-          name: vscode-fullscreen-linux-x64
+          name: scrimba-fullscreen-linux-x64
           path: |
             vscode/artifacts/*
             vscode/release-notes.md
@@ -102,7 +117,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: vscode-fullscreen-linux-x64
+          name: scrimba-fullscreen-linux-x64
           path: release
       - name: Publish archive, checksums, and source commit hashes
         env:
@@ -111,11 +126,18 @@ jobs:
           VSCODE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
           set -Eeuo pipefail
-          tag="vscode-fullscreen-${VSCODE_VERSION}-${GITHUB_SHA}"
-          title="Code OSS ${VSCODE_VERSION} fullscreen (${GITHUB_SHA:0:12})"
+          tag="scrimba-fullscreen-${VSCODE_VERSION}-${GITHUB_SHA}"
+          title="Scrimba ${VSCODE_VERSION} fullscreen (${GITHUB_SHA:0:12})"
+          if [[ -f release/artifacts/VERIFICATION_FAILED.txt ]]; then
+            title="$title — verification failed"
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release edit "$tag" --title "$title" --notes-file release/release-notes.md --latest=false
             gh release upload "$tag" release/artifacts/* --clobber
+            if [[ ! -f release/artifacts/VERIFICATION_FAILED.txt ]] && \
+              gh release view "$tag" --json assets --jq '.assets[].name' | grep -qx VERIFICATION_FAILED.txt; then
+              gh release delete-asset "$tag" VERIFICATION_FAILED.txt --yes
+            fi
           else
             gh release create "$tag" release/artifacts/* \
               --target "$GITHUB_SHA" --title "$title" \

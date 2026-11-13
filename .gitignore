@@ -20,3 +20,5 @@ backend/test-*.js
 /vscode/artifacts/
 /vscode/release-notes.md
 /vscode/**/__pycache__/
+
+/vscode/verification/
