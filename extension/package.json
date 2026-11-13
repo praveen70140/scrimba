@@ -12,12 +12,6 @@
   "engines": {
     "vscode": "^1.80.0"
   },
-  "activationEvents": [
-    "onView:scrim.catalog",
-    "onView:scrim.myCourses",
-    "onView:scrim.myLearning",
-    "onView:scrim.myForks"
-  ],
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run package",
