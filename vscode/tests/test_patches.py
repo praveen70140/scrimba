@@ -16,6 +16,7 @@ SOURCE = ROOT / 'source'
 WEBVIEW = 'src/vs/workbench/contrib/webview/browser/webviewElement.ts'
 INNER = 'src/vs/workbench/contrib/webview/browser/pre/index.html'
 APP = 'src/vs/code/electron-main/app.ts'
+GULP = 'build/gulpfile.vscode.ts'
 
 
 class FullscreenPatches(unittest.TestCase):
@@ -25,7 +26,7 @@ class FullscreenPatches(unittest.TestCase):
         cls.scratch = tempfile.TemporaryDirectory(prefix='vscode-patch-test-')
         cls.tree = Path(cls.scratch.name)
         cls.original = {}
-        for rel in [WEBVIEW, INNER, APP]:
+        for rel in [WEBVIEW, INNER, APP, GULP]:
             data = subprocess.check_output(['git', '-C', str(SOURCE), 'show', f'{cls.pin["commit"]}:{rel}'])
             cls.original[rel] = data.decode()
             target = cls.tree / rel
@@ -44,12 +45,12 @@ class FullscreenPatches(unittest.TestCase):
         self.assertEqual(head, self.pin['commit'])
         self.assertEqual(json.loads((SOURCE / 'package.json').read_text())['version'], self.pin['version'])
 
-    def test_patch_changes_only_vscode_fullscreen_gates(self):
+    def test_patch_changes_only_fullscreen_gates_and_oss_packaging(self):
         touched = []
         for patch in prepare.patches():
             touched.extend(re.findall(r'^\+\+\+ b/(.+)$', patch.read_text(), re.M))
-        self.assertEqual(set(touched), {WEBVIEW, INNER, APP})
-        self.assertEqual(len(touched), 3)
+        self.assertEqual(set(touched), {WEBVIEW, INNER, APP, GULP})
+        self.assertEqual(len(touched), 4)
 
     def test_both_iframes_delegate_fullscreen(self):
         outer = (self.tree / WEBVIEW).read_text()
@@ -100,6 +101,10 @@ class FullscreenPatches(unittest.TestCase):
                      'build/azure-pipelines/common/checkNativeOptionalDeps.ts',
                      'build/npm/electronTypes.ts', 'build/lib/builtInExtensions.ts']:
             self.assertTrue((SOURCE / path).is_file(), path)
+
+    def test_copilot_packaging_handles_absent_present_and_broken_sdk(self):
+        subprocess.run(['node', str(ROOT / 'tests/copilot-packaging.cjs'),
+                        str(self.tree / GULP)], check=True)
 
     def test_local_build_is_refused(self):
         env = dict(os.environ)

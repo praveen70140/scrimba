@@ -1,0 +1,16 @@
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index f1875976..50a1018d 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -564,6 +564,11 @@ function prepareCopilotRipgrepShimTask(platform: string, arch: string, destinati
+ 		const appNodeModulesDir = path.join(appBase, 'node_modules.asar.unpacked');
+ 
+ 		const builtInCopilotExtensionDir = path.join(appBase, 'extensions', 'copilot');
++		// OSS CI builds do not download the product pipeline's Copilot VSIX.
++		// Keep validating the SDK when the extension is actually included.
++		if (!fs.existsSync(builtInCopilotExtensionDir)) {
++			return;
++		}
+ 		prepareBuiltInCopilotRipgrepShim(platform, arch, builtInCopilotExtensionDir, appNodeModulesDir);
+ 	};
+ }

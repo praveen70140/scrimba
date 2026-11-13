@@ -46,6 +46,16 @@ button.addEventListener('click', async () => {
 The smoke-test extension is an isolated CI fixture. This change does not add a
 fullscreen button to the Scrimba extension itself.
 
+## OSS packaging compatibility
+
+The pinned upstream CI packaging task unconditionally prepares a Copilot SDK
+shim. Microsoft's product pipeline supplies that extension as a separate Azure
+artifact; the public `core-ci` task excludes it. The second patch skips shim
+preparation only when the packaged Copilot extension directory is absent. If the
+extension is included, the existing SDK validation still runs and fails on an
+incomplete SDK. This keeps the archive build independent of Microsoft's pipeline
+artifacts without hiding broken Copilot packages.
+
 ## GitHub Actions builds and releases
 
 `.github/workflows/vscode-fullscreen.yml` runs on pushes to `main` that change

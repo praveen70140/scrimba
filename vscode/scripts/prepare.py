@@ -2,15 +2,17 @@
 """Fetch and patch the exact VS Code release; never installs or builds anything."""
 import argparse
 import json
+import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(*args, cwd=None, capture=False):
-    return subprocess.run(args, cwd=cwd, check=True, text=True,
+def run(*args, cwd=None, capture=False, env=None):
+    return subprocess.run(args, cwd=cwd, env=env, check=True, text=True,
                           stdout=subprocess.PIPE if capture else None).stdout
 
 
@@ -59,7 +61,16 @@ def prepare(source):
         raise ValueError('The source package version disagrees with the pin')
     diff = run('git', 'diff', '--binary', 'HEAD', cwd=source, capture=True)
     # Accept exactly our patch series for idempotent local/CI use. Never reset a checkout.
-    expected = ''.join(p.read_text() for p in patch_files)
+    # Ask Git to compute the canonical combined diff using a temporary index.
+    # Patch-series order need not match Git's path order, and patches may build
+    # on earlier patches. The real checkout and its index remain untouched.
+    with tempfile.TemporaryDirectory(prefix='vscode-patch-index-') as temporary:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(temporary) / 'index'))
+        run('git', 'read-tree', 'HEAD', cwd=source, env=env)
+        for patch in patch_files:
+            run('git', 'apply', '--cached', str(patch), cwd=source, env=env)
+        expected = run('git', 'diff', '--cached', '--binary', 'HEAD',
+                       cwd=source, env=env, capture=True)
     if diff:
         if diff != expected:
             raise ValueError('Source has unexpected local changes; refusing to overwrite them')
