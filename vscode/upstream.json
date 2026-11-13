@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/microsoft/vscode.git",
+  "version": "1.146.0",
+  "ref": "refs/tags/1.146.0",
+  "commit": "69047191fc427f2f92828279aae1d90d8eeda7ab",
+  "verified_on": "2026-11-13",
+  "stable_update_api": "https://update.code.visualstudio.com/api/update/linux-x64/stable/latest",
+  "release_url": "https://github.com/microsoft/vscode/releases/tag/1.146.0"
+}

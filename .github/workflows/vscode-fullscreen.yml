@@ -1,0 +1,123 @@
+name: Build fullscreen Code OSS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'vscode/**'
+      - '.github/workflows/vscode-fullscreen.yml'
+  pull_request:
+    paths:
+      - 'vscode/**'
+      - '.github/workflows/vscode-fullscreen.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-fullscreen-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Verify pin and fullscreen patches
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.pin.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Clone pinned VS Code and apply patches
+        run: python3 vscode/scripts/prepare.py
+      - name: Check patches and policy boundaries without a build
+        run: |
+          python3 -m unittest discover -s vscode/tests -p 'test_*.py' -v
+          bash -n vscode/scripts/build-linux.sh
+          node --check vscode/tests/fullscreen-smoke.cjs
+          node --check vscode/tests/fullscreen-extension/extension.js
+      - name: Read pinned version
+        id: pin
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          print('version=' + json.load(open('vscode/upstream.json'))['version'])
+          PY
+
+  build:
+    name: Linux x64 (upstream build tasks)
+    needs: validate
+    # PRs validate patches only; releases come from the default branch.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Clone pinned VS Code and apply patches
+        run: python3 vscode/scripts/prepare.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: vscode/source/.nvmrc
+      - name: Make room for the upstream toolchains and build outputs
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h .
+      - name: Install upstream Linux build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential python3 python-is-python3 pkg-config \
+            libx11-dev libx11-xcb-dev libxkbfile-dev libkrb5-dev libsecret-1-dev \
+            libgtk-3-0t64 libgbm1 libasound2t64 libnss3 xvfb xauth
+      - name: Build using the pinned upstream pipeline tasks
+        run: bash vscode/scripts/build-linux.sh
+      - name: Verify video fullscreen in the packaged app
+        timeout-minutes: 5
+        run: xvfb-run -a -s '-screen 0 1280x800x24' node vscode/tests/fullscreen-smoke.cjs
+      - name: Archive and write commit provenance
+        run: python3 vscode/scripts/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-fullscreen-linux-x64
+          path: |
+            vscode/artifacts/*
+            vscode/release-notes.md
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vscode-fullscreen-linux-x64
+          path: release
+      - name: Publish archive, checksums, and source commit hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VSCODE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -Eeuo pipefail
+          tag="vscode-fullscreen-${VSCODE_VERSION}-${GITHUB_SHA}"
+          title="Code OSS ${VSCODE_VERSION} fullscreen (${GITHUB_SHA:0:12})"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "$title" --notes-file release/release-notes.md --latest=false
+            gh release upload "$tag" release/artifacts/* --clobber
+          else
+            gh release create "$tag" release/artifacts/* \
+              --target "$GITHUB_SHA" --title "$title" \
+              --notes-file release/release-notes.md --latest=false
+          fi

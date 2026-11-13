@@ -13,3 +13,10 @@ test-*.ts
 patch*.js
 all_*.txt
 backend/test-*.js
+
+# Local checkout of the pinned VS Code source
+/vscode/source/
+/vscode/VSCode-linux-x64/
+/vscode/artifacts/
+/vscode/release-notes.md
+/vscode/**/__pycache__/

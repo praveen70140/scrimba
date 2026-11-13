@@ -129,3 +129,9 @@ Both scripts remove and reinstall the shared Bun workspace dependencies using
 the existing lockfile and an empty temporary download cache. They preserve source
 files, `.env` files, and unrelated editor data. Run either script from any directory
 using its absolute path, or use the `bun run` commands from the project root.
+
+## Patched VS Code with video fullscreen
+
+The `vscode/` directory contains pinned Code - OSS fullscreen patches and a GitHub
+Actions build/release workflow. See [the fullscreen build instructions](vscode/README.md)
+for the pin, upstream pipeline references, release artifacts, and patch validation.

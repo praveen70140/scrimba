@@ -1,0 +1,4 @@
+# Unified diff context intentionally contains a leading space before source tabs.
+vscode/patches/*.patch -whitespace
+# Preserve the verbatim upstream license, including its CRLF line endings.
+vscode/upstream/LICENSE.txt -text whitespace=cr-at-eol
