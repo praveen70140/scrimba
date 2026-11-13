@@ -23,7 +23,31 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const apiClient = new ApiClient();
   const auth = new Auth(context.secrets, apiClient);
-  await auth.init();
+  // Do not block command registration on SecretStorage initialization. If the
+  // development host cannot access its secret store, the extension should
+  // still activate so commands such as Scrim: Register remain available.
+  void auth.init().catch(error => {
+    console.error('[Scrimba] Failed to restore authentication state:', error);
+  });
+
+  // Install the auth command before initializing optional UI components. If a
+  // later component fails during activation, the command remains usable.
+  context.subscriptions.push(vscode.commands.registerCommand('scrim.register', async () => {
+    const email = await vscode.window.showInputBox({ prompt: 'Email' });
+    if (!email) return;
+    const username = await vscode.window.showInputBox({ prompt: 'Username' });
+    if (!username) return;
+    const password = await vscode.window.showInputBox({ prompt: 'Password', password: true });
+    if (!password) return;
+    try {
+      const res = await apiClient.register(email, username, password);
+      if (!res?.token) throw new Error('No token received from backend. Check if the server is running properly.');
+      await auth.setToken(res.token);
+      vscode.window.showInformationMessage(`Registered and logged in as ${res.user?.username}`);
+    } catch (e: any) {
+      vscode.window.showErrorMessage('Registration failed: ' + e.message);
+    }
+  }));
 
   const session = new ScrimSession();
   const stateManager = new StateManager(session);
@@ -71,25 +95,6 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Logged in as ${res.user?.email}`);
       } catch (e: any) {
         vscode.window.showErrorMessage('Login failed: ' + e.message);
-      }
-    }),
-
-    vscode.commands.registerCommand('scrim.register', async () => {
-      const email = await vscode.window.showInputBox({ prompt: 'Email' });
-      if (!email) return;
-      const username = await vscode.window.showInputBox({ prompt: 'Username' });
-      if (!username) return;
-      const password = await vscode.window.showInputBox({ prompt: 'Password', password: true });
-      if (!password) return;
-      try {
-        const res = await apiClient.register(email, username, password);
-        if (!res || !res.token) {
-          throw new Error('No token received from backend. Check if the server is running properly.');
-        }
-        await auth.setToken(res.token);
-        vscode.window.showInformationMessage(`Registered and logged in as ${res.user?.username}`);
-      } catch (e: any) {
-        vscode.window.showErrorMessage('Registration failed: ' + e.message);
       }
     }),
 

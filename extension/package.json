@@ -13,6 +13,8 @@
     "vscode": "^1.80.0"
   },
   "activationEvents": [
+    "onCommand:scrim.register",
+    "onCommand:scrim.login",
     "onView:scrim.catalog",
     "onView:scrim.myCourses",
     "onView:scrim.myLearning",
@@ -21,7 +23,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run package",
-    "compile": "tsc -b",
+    "compile": "tsc -b --force",
     "watch": "tsc -b -w",
     "package": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node"
   },

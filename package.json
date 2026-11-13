@@ -11,7 +11,9 @@
     "build": "bun build:shared && bun build:backend && bun build:extension",
     "build:shared": "cd backend && bun run tsc -b --force ../packages/shared",
     "build:backend": "cd backend && bun run tsc -b",
-    "build:extension": "cd extension && bun run tsc -b",
+    "build:extension": "cd extension && bun run compile && bun run package",
+    "reset:backend": "bash scripts/reset-backend.sh",
+    "reset:extension": "bash scripts/reset-extension.sh",
     "dev:backend": "cd backend && bun run --watch src/index.ts",
     "postinstall": "cd backend && bun x prisma generate"
   },

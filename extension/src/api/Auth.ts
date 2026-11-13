@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { ApiClient } from './ApiClient';
+import { existsSync, unlinkSync } from 'fs';
+import * as path from 'path';
+import { Paths } from '../utils/Paths';
 
 const TOKEN_KEY = 'scrimba_clone_jwt';
 
@@ -36,6 +39,12 @@ export class Auth {
    * Initializes the Auth state on extension activation.
    */
   public async init(): Promise<void> {
+    const resetMarker = path.join(Paths.getBaseDir(), '.reset-auth');
+    if (existsSync(resetMarker)) {
+      await this.clearToken();
+      unlinkSync(resetMarker);
+      return;
+    }
     const token = await this.getToken();
     if (token) {
       this.apiClient.setToken(token);

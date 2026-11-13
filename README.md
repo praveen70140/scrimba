@@ -101,3 +101,31 @@ Each course template carries a `flake.nix`. The flake is the environment contrac
 This choice follows the research behind Nix and NixOS. Dolstra and colleagues describe a purely functional configuration model in which packages and configuration are built from a declarative specification and stored immutably, reducing the hidden machine state that usually makes environments hard to reproduce. See [NixOS: A Purely Functional Linux Distribution](https://nixos.org/~eelco/pubs/nixos-icfp2008-submitted.pdf), the [Nix research index](https://nixos.org/research/), and the practical [How Nix Works](https://nixos.org/guides/how-nix-works/) guide.
 
 For the first version, Linux is the supported host. The snapshot code uses portable path handling and ordinary subprocess execution so WSL support remains possible later. `flake.nix` and lockfiles are course-managed; the extension warns students to leave them unchanged while solving a challenge.
+
+## Reset development deployments
+
+Close the running backend and Extension Development Host before resetting.
+These commands delete development data immediately, with no confirmation prompt:
+
+```bash
+bun run reset:backend
+bun run reset:extension
+```
+
+The backend reset deletes this Compose project's containers and volumes, including
+all database users, courses, progress, and uploaded objects. It recreates PostgreSQL
+and RustFS, regenerates Prisma, forces a TypeScript rebuild, applies migrations,
+creates the storage bucket, and starts the API in the foreground. Migration
+credentials and the published database port come from Compose; `backend/.env`
+must also point to that database and use the configured RustFS credentials.
+
+The extension reset deletes extension/shared build outputs, `.vscode-test`, and
+all of `~/.scrimba` (local courses, recordings, downloads, and workspace snapshots).
+It rebuilds and bundles the extension. Press F5 afterward to start a fresh host;
+the extension erases its saved login token on that first activation. If SecretStorage
+is unavailable, the marker remains so clearing the token can be retried.
+
+Both scripts remove and reinstall the shared Bun workspace dependencies using
+the existing lockfile and an empty temporary download cache. They preserve source
+files, `.env` files, and unrelated editor data. Run either script from any directory
+using its absolute path, or use the `bun run` commands from the project root.
