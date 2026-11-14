@@ -74,9 +74,14 @@ jobs:
           sudo apt-get install -y \
             build-essential python3 python-is-python3 pkg-config \
             libx11-dev libx11-xcb-dev libxkbfile-dev libkrb5-dev libsecret-1-dev \
-            libgtk-3-0t64 libgbm1 libasound2t64 libnss3 xvfb xauth
+            libgtk-3-0t64 libgbm1 libasound2t64 libnss3 xvfb xauth ffmpeg squashfs-tools desktop-file-utils
       - name: Build using the pinned upstream pipeline tasks
         run: bash vscode/scripts/build-linux.sh
+      - name: Generate real encoded playback fixtures
+        run: |
+          mkdir -p vscode/tests/fullscreen-extension/media
+          ffmpeg -y -f lavfi -i testsrc2=size=320x180:rate=15 -t 3 -an -c:v libx264 -pix_fmt yuv420p -movflags +faststart vscode/tests/fullscreen-extension/media/sample.mp4
+          ffmpeg -y -f lavfi -i testsrc2=size=320x180:rate=15 -t 3 -an -c:v libvpx-vp9 -b:v 200k vscode/tests/fullscreen-extension/media/sample.webm
       - name: Verify video fullscreen in the packaged app
         id: verification
         continue-on-error: true
@@ -96,6 +101,7 @@ jobs:
       - name: Archive and write commit provenance
         env:
           VERIFICATION_STATUS: ${{ steps.verification.outcome }}
+          BUILD_APPIMAGE: '1'
         run: python3 vscode/scripts/package.py
       - uses: actions/upload-artifact@v4
         with:

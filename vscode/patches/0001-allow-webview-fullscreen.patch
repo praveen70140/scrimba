@@ -11,9 +11,18 @@ index 9d266151..bb13e6af 100644
  			'clipboard-sanitized-write',
  			// TODO(deepak1556): Should be removed once migration is complete
 diff --git a/src/vs/workbench/contrib/webview/browser/pre/index.html b/src/vs/workbench/contrib/webview/browser/pre/index.html
-index 0b840cb7..865e790b 100644
+index 0b840cb7..9a13a4e4 100644
 --- a/src/vs/workbench/contrib/webview/browser/pre/index.html
 +++ b/src/vs/workbench/contrib/webview/browser/pre/index.html
+@@ -5,7 +5,7 @@
+ 	<meta charset="UTF-8">
+ 
+ 	<meta http-equiv="Content-Security-Policy"
+-		content="default-src 'none'; script-src 'sha256-29YeDbmHnhN2BgMJKVq7vDCMiuya6rpEctI6SkJFfJc=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
++		content="default-src 'none'; script-src 'sha256-RpmUY1OUuGSa4r78x/zrjW+RZ0U4ZK+r/P+hzX3Q8go=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+ 
+ 	<!-- Disable pinch zooming -->
+ 	<meta name="viewport"
 @@ -1085,11 +1085,12 @@
  				}
  				newFrame.setAttribute('sandbox', Array.from(sandboxRules).join(' '));

@@ -8,6 +8,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 from prepare import ROOT, load_pin, patches
+from appimage import build_appimage
 
 pin = load_pin()
 project = ROOT.parent
@@ -36,6 +37,7 @@ manifest = {
     'target': 'linux-x64',
     'electron': 'upstream prebuilt binary, unmodified',
     'verification': verification,
+    'appimage_tools': json.loads((ROOT / 'appimage-tools.json').read_text()),
     'patches': [{'file': p.name, 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in patches()],
 }
 output = ROOT / 'artifacts'
@@ -53,6 +55,8 @@ if not verified:
     (build / 'VERIFICATION_FAILED.txt').write_text(warning)
 with tarfile.open(output / f'{name}.tar.gz', 'w:gz') as archive:
     archive.add(build, arcname='Scrimba-linux-x64')
+if os.environ.get('BUILD_APPIMAGE') == '1':
+    build_appimage(build, output / f'{name}.AppImage')
 diagnostics = ROOT / 'verification'
 if diagnostics.is_dir():
     with tarfile.open(output / f'{name}-verification.tar.gz', 'w:gz') as archive:
@@ -64,7 +68,7 @@ with (output / 'SHA256SUMS').open('w') as sums:
         with path.open('rb') as asset:
             digest = hashlib.file_digest(asset, 'sha256').hexdigest()
         sums.write(f'{digest}  {path.name}\n')
-validation = ('Passed: nested-webview video playback, user-initiated fullscreen, and Escape exit under Xvfb.'
+validation = ('Passed: encoded H.264 MP4 and VP9 WebM playback, user-initiated fullscreen, and Escape exit under Xvfb.'
               if verified else f'**WARNING: fullscreen verification {status}.** The binaries built successfully, but automated verification did not pass. Test this build manually; the failure may be in the application or the test harness. See the attached verification diagnostics and workflow logs.')
 notes = f'''Scrimba {pin['version']} with webview video fullscreen enabled.
 
@@ -74,7 +78,9 @@ notes = f'''Scrimba {pin['version']} with webview video fullscreen enabled.
 - Upstream VS Code commit: `{pin['commit']}` (tag `{pin['version']}`)
 - Build workflow: {manifest['workflow_run']}
 - Verification outcome: `{status}`
-- Target: Linux x64 (portable `.tar.gz`; extract and run `Scrimba-linux-x64/bin/scrimba`)
+- Target: Linux x64 (`.AppImage` and portable `.tar.gz`)
+- AppImage: `chmod +x scrimba-*.AppImage` and launch it. Without FUSE, use `./scrimba-*.AppImage --appimage-extract-and-run`.
+- Archive: extract and run `Scrimba-linux-x64/bin/scrimba`
 - Electron: the upstream pinned prebuilt binary, unmodified.
 - Editor settings/extensions: separate `.scrimba-editor` directory; existing VS Code data is untouched.
 

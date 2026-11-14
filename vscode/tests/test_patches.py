@@ -1,5 +1,7 @@
 """Fast policy and patch regression checks. No VS Code dependencies or builds."""
 import importlib.util
+import hashlib
+import base64
 import json
 import os
 import re
@@ -59,6 +61,14 @@ class FullscreenPatches(unittest.TestCase):
         self.assertIn('element.allowFullscreen = true;', outer)
         self.assertIn("'fullscreen;'];", inner)
         self.assertIn('newFrame.allowFullscreen = true;', inner)
+
+    def test_webview_host_csp_hash_matches_modified_inline_script(self):
+        html = (self.tree / INNER).read_text()
+        bodies = re.findall(r'<script\b[^>]*>([\s\S]*?)</script>', html)
+        self.assertEqual(len(bodies), 1)
+        actual = base64.b64encode(hashlib.sha256(bodies[0].encode()).digest()).decode()
+        declared = re.search(r"script-src 'sha256-([^']+)'", html)[1]
+        self.assertEqual(declared, actual, 'A stale CSP hash blocks ALL webview content')
 
     def test_sandbox_restrictions_preserved(self):
         for rel in [WEBVIEW, INNER]:

@@ -21,7 +21,7 @@ class ReleasePackaging(unittest.TestCase):
         target = project / 'vscode'
         shutil.copytree(ROOT / 'scripts', target / 'scripts', ignore=shutil.ignore_patterns('__pycache__'))
         shutil.copytree(ROOT / 'patches', target / 'patches')
-        for name in ['upstream.json', 'product-overrides.json']:
+        for name in ['upstream.json', 'product-overrides.json', 'appimage-tools.json']:
             shutil.copyfile(ROOT / name, target / name)
         build = target / 'VSCode-linux-x64'
         build.mkdir()

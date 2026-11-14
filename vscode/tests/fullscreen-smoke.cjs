@@ -35,7 +35,7 @@ async function main() {
       executablePath: path.join(root, 'VSCode-linux-x64', 'scrimba'),
       args: [
         '--no-sandbox', '--disable-gpu', '--disable-workspace-trust',
-        '--new-window', '--skip-welcome', '--skip-release-notes', '--log=trace',
+        '--new-window', '--skip-welcome', '--skip-release-notes', '--log=info',
         '--user-data-dir', userData,
         '--extensions-dir', path.join(temp, 'extensions'),
         '--extensionDevelopmentPath=' + path.join(__dirname, 'fullscreen-extension'),
@@ -46,6 +46,14 @@ async function main() {
     });
     app.process().stdout?.on('data', chunk => log.push(chunk.toString()));
     app.process().stderr?.on('data', chunk => log.push(chunk.toString()));
+    const captureRenderer = window => {
+      window.on('pageerror', error => log.push('Renderer error: ' + error.stack + '\n'));
+      window.on('console', message => {
+        if (['error', 'warning'].includes(message.type())) log.push('Renderer ' + message.type() + ': ' + message.text() + '\n');
+      });
+    };
+    app.on('window', captureRenderer);
+    for (const window of app.windows()) captureRenderer(window);
     await app.firstWindow({ timeout: 60_000 });
     stage = 'find video webview';
     let videoFrame;
@@ -71,27 +79,34 @@ async function main() {
     let nesting = 0;
     for (let frame = videoFrame; frame.parentFrame(); frame = frame.parentFrame()) nesting++;
     assert.ok(nesting >= 2, 'The test must exercise both nested webview iframes');
-    stage = 'video playback';
-    await videoFrame.waitForFunction(() => {
-      const video = document.getElementById('fullscreen-video');
-      return video.readyState >= 2 && video.currentTime > 0 && !video.paused;
-    }, null, { timeout: 20_000 });
-    assert.equal(await videoFrame.evaluate(() => document.fullscreenEnabled), true);
-    stage = 'enter fullscreen';
-    await videoFrame.locator('#enter-fullscreen').click({ timeout: 10_000 });
-    try {
-      await videoFrame.waitForFunction(() => document.fullscreenElement === document.getElementById('fullscreen-video'), null, { timeout: 10_000 });
-      assert.equal(await window.evaluate(() => !!document.fullscreenElement), true,
-        'Fullscreen must propagate through the workbench frame');
-      stage = 'exit fullscreen';
-      await window.keyboard.press('Escape');
-      await videoFrame.waitForFunction(() => !document.fullscreenElement, null, { timeout: 10_000 });
-      assert.equal(await window.evaluate(() => !!document.fullscreenElement), false);
-    } catch (error) {
-      throw new Error(`${error.message}\nWebview: ${await videoFrame.locator('#result').textContent()}\n${log.join('')}`);
+    const support = await videoFrame.evaluate(() => window.mediaSupport);
+    await fs.writeFile(path.join(diagnostics, 'codec-support.json'), JSON.stringify(support, null, 2));
+    for (const format of ['mp4', 'webm']) {
+      stage = format + ' playback';
+      await videoFrame.locator('#play-' + format).click({ timeout: 10_000 });
+      try {
+        await videoFrame.waitForFunction(() => {
+          const video = document.getElementById('fullscreen-video');
+          if (video.error) throw new Error('Media error ' + video.error.code + ': ' + video.error.message);
+          return video.readyState >= 2 && video.currentTime > 0 && !video.paused;
+        }, null, { timeout: 20_000 });
+        assert.equal(await videoFrame.evaluate(() => document.fullscreenEnabled), true);
+        stage = format + ' enter fullscreen';
+        await videoFrame.locator('#enter-fullscreen').click({ timeout: 10_000 });
+        await videoFrame.waitForFunction(() => document.fullscreenElement === document.getElementById('fullscreen-video'), null, { timeout: 10_000 });
+        assert.equal(await window.evaluate(() => !!document.fullscreenElement), true,
+          'Fullscreen must propagate through the workbench frame');
+        stage = format + ' exit fullscreen';
+        await window.keyboard.press('Escape');
+        await videoFrame.waitForFunction(() => !document.fullscreenElement, null, { timeout: 10_000 });
+        assert.equal(await window.evaluate(() => !!document.fullscreenElement), false);
+        console.log('PASS: ' + format + ' decoded, entered fullscreen and exited with Escape');
+      } catch (error) {
+        throw new Error(`${error.message}\nWebview: ${await videoFrame.locator('#result').textContent()}\nCodecs: ${JSON.stringify(support)}\n${log.join('')}`);
+      }
     }
     stage = 'complete';
-    console.log('PASS: video plays, enters fullscreen through both iframes, and exits with Escape');
+    console.log('PASS: encoded H.264 MP4 and VP9 WebM both play, enter fullscreen through both iframes, and exit with Escape');
   } catch (error) {
     failure = error;
     throw error;

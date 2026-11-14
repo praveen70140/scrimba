@@ -34,7 +34,9 @@ checkout is still named `vscode/source` for the existing build tooling.
 ## What the patch enables
 
 VS Code nests extension HTML inside two iframes. The patch delegates the
-`fullscreen` permission through both and sets their `allowFullscreen` properties.
+`fullscreen` permission through both and sets their `allowFullscreen` properties. It
+also updates the host page CSP hash because that page has a hashed inline script;
+without this hash update, the webview renders blank and video cannot play.
 The desktop application's session permission allowlist also needs `fullscreen`
 for requests from `vscode-webview://` content. Both its request and check handlers
 use that allowlist. Other origins and existing sandbox restrictions are unchanged.
@@ -79,10 +81,12 @@ The workflow:
 2. Runs the patch regression checks without compiling anything.
 3. Uses upstream's `.nvmrc`, pinned pnpm version, Linux native-toolchain setup,
    built-in extension downloader, and `core-ci` / `vscode-linux-x64-min-ci` tasks.
-4. Starts the packaged app under Xvfb, loads a real extension webview, plays a
-   generated video stream, clicks its fullscreen button, and verifies Escape exits.
-5. Archives the application using upstream's portable Linux archive layout.
-6. Publishes a GitHub Release with the archive, a provenance JSON file,
+4. Generates real H.264 MP4 and VP9 WebM fixtures, starts the packaged app under
+   Xvfb, loads a real extension webview, plays both files, clicks fullscreen, and
+   verifies Escape exits.
+5. Archives the application using upstream's portable Linux archive layout and
+   creates a pinned-tool AppImage.
+6. Publishes a GitHub Release with the `.AppImage`, `.tar.gz`, provenance JSON,
    verification diagnostics, and `SHA256SUMS`. The JSON is also embedded as
    `fullscreen-build.json` in the app.
 
@@ -98,7 +102,7 @@ without presenting an unverified build as tested. Compilation/packaging failures
 still prevent publication. The workflow uses the repository's normal `GITHUB_TOKEN`; it
 needs no custom release secret. Only the release job has `contents: write`.
 
-The initial target is **Linux x64**, delivered as `.tar.gz`. Extract it and run
+The initial target is **Linux x64**, delivered as both `.AppImage` and `.tar.gz`. Make the AppImage executable and run it directly; if FUSE is unavailable, use `--appimage-extract-and-run`. Extract the tarball and run
 `Scrimba-linux-x64/bin/scrimba`. The archive is named `scrimba-fullscreen-...tar.gz`;
 upstream's internal staging folder remains `VSCode-linux-x64`. Its separate editor
 identity and data directories let it coexist with VS Code.

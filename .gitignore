@@ -22,3 +22,5 @@ backend/test-*.js
 /vscode/**/__pycache__/
 
 /vscode/verification/
+
+/vscode/tests/fullscreen-extension/media/
