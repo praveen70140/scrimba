@@ -109,6 +109,19 @@ identity and data directories let it coexist with VS Code.
 Windows, macOS, ARM, native installer packages, Microsoft signing, remote-server
 artifacts, and Microsoft distribution mixins are outside this initial pipeline.
 
+## AppImage launch lifetime
+
+The AppImage launcher sets `SCRIMBA_APPIMAGE=1`. A small CLI patch keeps the
+launcher attached until its editor process exits, including when `--verbose` is
+absent. Otherwise the normal CLI returns immediately, the AppImage runtime
+unmounts its files, and the detached editor can crash with `SIGBUS` while loading
+code or libraries. CLI operations such as `--version` and `--install-extension`
+retain their existing behavior. Tarball launches do not set this flag.
+
+For images built before this fix, `--verbose --new-window` keeps the launcher
+attached as a temporary workaround. Do not wrap an interactive launch in
+`timeout`, which closes it after the specified duration.
+
 ## Upstream pipeline provenance
 
 The verbatim MIT-licensed references under `upstream/` are copied from the pinned

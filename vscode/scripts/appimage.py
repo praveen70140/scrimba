@@ -20,6 +20,7 @@ def make_appdir(build, appdir, icon):
     launcher.write_text('''#!/bin/sh
 set -e
 appdir="${APPDIR:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
+export SCRIMBA_APPIMAGE=1
 exec "$appdir/usr/lib/scrimba/bin/scrimba" "$@"
 ''')
     launcher.chmod(0o755)

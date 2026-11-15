@@ -20,7 +20,7 @@ class AppImageLayout(unittest.TestCase):
             build = root / 'build'
             (build / 'bin').mkdir(parents=True)
             launcher = build / 'bin/scrimba'
-            launcher.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+            launcher.write_text('#!/bin/sh\nprintf "%s\\n" "$SCRIMBA_APPIMAGE" "$@"\n')
             launcher.chmod(0o755)
             (build / 'scrimba').symlink_to('bin/scrimba')
             icon = root / 'icon.png'
@@ -28,8 +28,9 @@ class AppImageLayout(unittest.TestCase):
             directory = root / 'Scrimba with spaces.AppDir'
             appimage.make_appdir(build, directory, icon)
             env = dict(os.environ, APPDIR=str(directory))
+            env.pop('SCRIMBA_APPIMAGE', None)
             result = subprocess.check_output([str(directory / 'AppRun'), '--new-window', 'folder with spaces'], text=True, env=env)
-            self.assertEqual(result.splitlines(), ['--new-window', 'folder with spaces'])
+            self.assertEqual(result.splitlines(), ['1', '--new-window', 'folder with spaces'])
             self.assertTrue((directory / 'usr/lib/scrimba/scrimba').is_symlink())
             self.assertEqual((directory / '.DirIcon').resolve(), directory / 'scrimba.png')
             desktop = (directory / 'scrimba.desktop').read_text()

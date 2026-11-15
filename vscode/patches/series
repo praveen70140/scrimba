@@ -1,2 +1,3 @@
 0001-allow-webview-fullscreen.patch
 0002-skip-absent-copilot-in-oss-builds.patch
+0003-keep-appimage-mounted.patch

@@ -1,0 +1,13 @@
+diff --git a/src/vs/code/node/cli.ts b/src/vs/code/node/cli.ts
+--- a/src/vs/code/node/cli.ts
++++ b/src/vs/code/node/cli.ts
+@@ -234,7 +234,8 @@
+ 			env['ELECTRON_ENABLE_LOGGING'] = '1';
+ 		}
+ 
+-		if (args.verbose || args.status) {
++		// Keep the AppImage runtime alive until the editor exits so its files stay mounted.
++		if (args.verbose || args.status || env['SCRIMBA_APPIMAGE'] === '1') {
+ 			processCallbacks.push(async child => {
+ 				child.stdout?.on('data', (data: Buffer) => console.log(data.toString('utf8').trim()));
+ 				child.stderr?.on('data', (data: Buffer) => console.log(data.toString('utf8').trim()));
